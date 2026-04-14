@@ -188,7 +188,19 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('SW Operativo'))
+                    .then(reg => {
+                        console.log('SW Operativo');
+                        // Forzar actualización si hay un SW esperando
+                        reg.onupdatefound = () => {
+                            const installingWorker = reg.installing;
+                            installingWorker.onstatechange = () => {
+                                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    alert('Nueva versión disponible. Recargando...');
+                                    window.location.reload();
+                                }
+                            };
+                        };
+                    })
                     .catch(e => console.error('Error SW', e));
             });
         }
