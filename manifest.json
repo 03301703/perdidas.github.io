@@ -1,7 +1,7 @@
 {
-  "name": "Perdidas El Trigal",
+  "name": "Perdidas - Flores el Trigal",
   "short_name": "Perdidas ET",
-  "description": "Control de Perdidas en campo - Flores El Trigal",
+  "description": "Gestión de pérdidas en campo - Flores El Trigal",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#1a3c61",

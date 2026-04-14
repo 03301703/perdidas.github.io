@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-title" content="Perdidas Trigal">
     <link rel="apple-touch-icon" href="https://via.placeholder.com/192/1a3c61/ffffff?text=ET">
     
-    <title>Perdidas El Trigal - PWA Premium</title>
+    <title>Perdidas - Flores el Trigal</title>
     
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="style.css">
@@ -23,8 +23,8 @@
 
     <header>
         <div class="header-content">
-            <h2>Perdidas <span>El Trigal</span></h2>
-            <p>Flores El Trigal - Gestión de Campo</p>
+            <h2>Perdidas - <span>Flores el Trigal</span></h2>
+            <p>Gestión de pérdidas en campo.</p>
         </div>
     </header>
 
@@ -59,6 +59,13 @@
                     </select>
                 </div>
             </div>
+            <div id="divSelectorSiembra" style="display:none; margin-top:15px; border-top: 1px solid #edf2f7; padding-top:15px;">
+                <label style="color:var(--danger); font-weight:800;">⚠️ Varias siembras detectadas</label>
+                <select id="selSiembra" onchange="window.app.seleccionarSiembraEspecifica()">
+                    <option value="">-- Elegir Reporte de Siembra --</option>
+                </select>
+            </div>
+
             <div id="infoVariedad" class="variety-info" style="display:none;">
                 Variedad: <b id="v_nombre">-</b> <br>
                 Siembra Original: <b id="v_plantas">0</b> plantas
@@ -93,14 +100,16 @@
                         <option value="Vegetativo">Vegetativo</option>
                         <option value="Daño mecánico">Daño mecánico</option>
                         <option value="Torcido">Torcido</option>
-                        <option value="Delgado">Delgado</option>
                         <option value="Malformación">Malformación</option>
                         <option value="Tallos Cortos">Tallos Cortos</option>
                         <option value="Mezcla">Mezcla</option>
                         <option value="Mutación">Mutación</option>
                         <option value="Flor abierta">Flor abierta</option>
                         <option value="Flor cerrada">Flor cerrada</option>
-                        <option value="OTRA">⚠️ Otra causa...</option>
+                        <option value="pocos puntos y delgados">pocos puntos y delgados</option>
+                        <option value="Compuestos">Compuestos</option>
+                        <option value="Botón corona">Botón corona</option>
+                        <option value="OTRA">Otra causa...</option>
                     </select>
                 </div>
                 <div class="field" style="flex: 1;">
@@ -154,10 +163,10 @@
         <!-- ACCIONES -->
         <div style="margin-top: 15px;">
             <button class="btn btn-accent" onclick="window.app.exportar()">
-                📊 Descargar Excel Detallado
+                Descargar Excel Detallado
             </button>
             <button class="btn" style="color: var(--danger); font-size: 0.85rem; margin-top: 10px; border: 1px dashed rgba(229, 62, 62, 0.3);" onclick="window.app.limpiarCache()">
-                🗑️ Reiniciar Datos de Hoy
+                Reiniciar Datos de Hoy
             </button>
         </div>
 

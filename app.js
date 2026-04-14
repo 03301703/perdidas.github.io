@@ -17,6 +17,8 @@ window.app = (function() {
         fileInput: document.getElementById('fileInput'),
         selBloque: document.getElementById('selBloque'),
         selCama: document.getElementById('selCama'),
+        divSelectorSiembra: document.getElementById('divSelectorSiembra'),
+        selSiembra: document.getElementById('selSiembra'),
         infoVariedad: document.getElementById('infoVariedad'),
         v_nombre: document.getElementById('v_nombre'),
         v_plantas: document.getElementById('v_plantas'),
@@ -152,27 +154,57 @@ window.app = (function() {
         });
         els.selCama.disabled = false;
         els.infoVariedad.style.display = 'none';
+        els.divSelectorSiembra.style.display = 'none';
     }
 
     function autocompletarTodo() {
         const blq = els.selBloque.value;
         const cam = els.selCama.value;
-        const record = inventory.find(d => d.bloque === blq && d.cama === cam);
+        const matches = inventory.filter(d => d.bloque === blq && d.cama === cam);
 
-        if (record) {
-            els.infoVariedad.style.display = 'block';
-            els.v_nombre.innerText = record.variedad;
-            els.v_plantas.innerText = record.plantas;
-            
-            // Auto-selección de producto
-            if (record.producto) {
-                const rdo = document.querySelector(`input[name="prodType"][value="${record.producto}"]`);
-                if (rdo) rdo.checked = true;
-            }
-
-            currentBedCauses = [];
-            recalcular();
+        if (matches.length > 1) {
+            // Mostrar selector de siembras
+            els.divSelectorSiembra.style.display = 'block';
+            els.infoVariedad.style.display = 'none';
+            els.selSiembra.innerHTML = '<option value="">-- Seleccionar Reporte Correcto --</option>';
+            matches.forEach((m, index) => {
+                els.selSiembra.innerHTML += `<option value="${index}">${m.variedad} | ${m.plantas} plantas</option>`;
+            });
+        } else if (matches.length === 1) {
+            // Solo una, auto-aplicar
+            els.divSelectorSiembra.style.display = 'none';
+            aplicarDatosSiembra(matches[0]);
+        } else {
+            els.divSelectorSiembra.style.display = 'none';
+            els.infoVariedad.style.display = 'none';
         }
+    }
+
+    function seleccionarSiembraEspecifica() {
+        const blq = els.selBloque.value;
+        const cam = els.selCama.value;
+        const matches = inventory.filter(d => d.bloque === blq && d.cama === cam);
+        
+        if (els.selSiembra.value !== "") {
+            aplicarDatosSiembra(matches[parseInt(els.selSiembra.value)]);
+        } else {
+            els.infoVariedad.style.display = 'none';
+        }
+    }
+
+    function aplicarDatosSiembra(record) {
+        els.infoVariedad.style.display = 'block';
+        els.v_nombre.innerText = record.variedad;
+        els.v_plantas.innerText = record.plantas;
+        
+        // Auto-selección de producto
+        if (record.producto) {
+            const rdo = document.querySelector(`input[name="prodType"][value="${record.producto}"]`);
+            if (rdo) rdo.checked = true;
+        }
+
+        currentBedCauses = [];
+        recalcular();
     }
 
     // -- Loss Logic --
@@ -264,6 +296,7 @@ window.app = (function() {
         currentBedCauses = [];
         els.selCama.value = "";
         els.infoVariedad.style.display = 'none';
+        els.divSelectorSiembra.style.display = 'none';
         recalcular();
         alert("✅ Registro guardado");
     }
@@ -341,6 +374,7 @@ window.app = (function() {
         procesarExcel,
         cargarCamas,
         autocompletarTodo,
+        seleccionarSiembraEspecifica,
         verificarOtraCausa,
         agregarCausa,
         guardarFila,
