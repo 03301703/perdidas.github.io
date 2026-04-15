@@ -167,6 +167,7 @@ window.app = (function() {
             els.divSelectorSiembra.style.display = 'block';
             els.infoVariedad.style.display = 'none';
             els.selSiembra.innerHTML = '<option value="">-- Seleccionar Reporte Correcto --</option>';
+            els.selSiembra.innerHTML += '<option value="ALL" style="font-weight:900; color:var(--primary);">Σ SUMAR TODAS LAS SIEMBRAS</option>';
             matches.forEach((m, index) => {
                 els.selSiembra.innerHTML += `<option value="${index}">${m.variedad} | ${m.plantas} plantas</option>`;
             });
@@ -185,7 +186,11 @@ window.app = (function() {
         const cam = els.selCama.value;
         const matches = inventory.filter(d => d.bloque === blq && d.cama === cam);
         
-        if (els.selSiembra.value !== "") {
+        if (els.selSiembra.value === "ALL") {
+            const totalP = matches.reduce((acc, m) => acc + m.plantas, 0);
+            const variedades = [...new Set(matches.map(m => m.variedad))].join(" + ");
+            aplicarDatosSiembra({ variedad: variedades, plantas: totalP, producto: "" });
+        } else if (els.selSiembra.value !== "") {
             aplicarDatosSiembra(matches[parseInt(els.selSiembra.value)]);
         } else {
             els.infoVariedad.style.display = 'none';
@@ -281,7 +286,8 @@ window.app = (function() {
             causasRaw: [...currentBedCauses],
             causasHTML: currentBedCauses.map(c => {
                 const isMax = c.nombre === maxCausa.nombre;
-                return `<span class="causa-tag ${isMax ? 'main' : ''}">${c.nombre}: ${c.cantidad}</span>`;
+                const p = (c.cantidad / totalP * 100).toFixed(1);
+                return `<span class="causa-tag ${isMax ? 'main' : ''}">${c.nombre}: ${c.cantidad} (${p}%)</span>`;
             }).join(" "),
             resumenTexto: currentBedCauses.map(c => {
                 const p = (c.cantidad / totalP * 100).toFixed(1);
@@ -314,7 +320,7 @@ window.app = (function() {
                     <td>${r.variedad}</td>
                     <td>
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                            <span style="font-weight:900; font-size:1.1rem;">${r.totalPerdidas}</span>
+                            <span style="font-weight:900; font-size:1.1rem;">${r.totalPerdidas} <small style="font-weight:400; font-size:0.85rem; opacity:0.6;">(${r.porcentaje})</small></span>
                             <button onclick="window.app.eliminarFila(${r.id})" style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:1.4rem;">×</button>
                         </div>
                         <div>${r.causasHTML}</div>
@@ -384,3 +390,4 @@ window.app = (function() {
     };
 
 })();
+
