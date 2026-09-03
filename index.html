@@ -1,0 +1,1114 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GHT - Aseguramiento de Hidratación Campo</title>
+
+    <!-- PWA -->
+    <meta name="theme-color" content="#1a3a6c">
+    <meta name="description" content="Flores El Trigal - Aseguramiento de Hidratación Campo (GHT)">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GHT Trigal">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #1a3a6c;
+            --primary-light: #2c5282;
+            --accent: #c19a3b;
+            --accent-hover: #a68132;
+            --danger: #c62828;
+            --bg: #f4f7f9;
+            --card-bg: #ffffff;
+            --text-main: #1a202c;
+            --text-muted: #4a5568;
+            --border: #cbd5e0;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        body { background-color: var(--bg); color: var(--text-main); margin: 0; padding: 0; }
+
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 10px 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 4px solid var(--accent);
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .brand h1 { margin: 0; font-size: 1.1rem; font-weight: 400; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; }
+        .brand span { font-size: 1.6rem; font-weight: 800; color: white; display: block; line-height: 1.1; }
+
+        .container { width: 95%; max-width: 1400px; margin: 15px auto; }
+
+        .main-nav { display: flex; background-color: var(--primary-light); margin-bottom: 15px; border-radius: 4px; overflow: hidden; }
+        .nav-item { flex: 1; padding: 12px 4px; text-align: center; color: white; text-transform: uppercase; font-weight: 600; cursor: pointer; transition: 0.3s; user-select: none; font-size: 0.85rem; }
+        .nav-item.active { background-color: var(--primary); border-bottom: 3px solid var(--accent); }
+
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .kpi-card { background: var(--card-bg); padding: 14px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-top: 4px solid var(--primary); text-align: left; }
+        .kpi-card i { font-size: 1.3rem; color: var(--accent); float: right; }
+        .kpi-card .value { font-size: 1.6rem; font-weight: 700; color: var(--primary); display: block; }
+        .kpi-card .label { color: var(--text-muted); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
+
+        .card { background: var(--card-bg); border-radius: 8px; padding: 18px; margin-bottom: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+
+        /* Panel colapsable (Gestión de Personal en la vista Captura) */
+        details.card { padding: 0; }
+        details.card summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 16px 18px;
+            font-size: 0.95rem;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        details.card summary::-webkit-details-marker { display: none; }
+        details.card summary::after {
+            content: "\f078";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            font-size: 0.8rem;
+            color: var(--accent);
+            transition: transform 0.2s;
+            flex-shrink: 0;
+            margin-left: 10px;
+        }
+        details.card[open] summary::after { transform: rotate(180deg); }
+        details.card[open] summary { border-bottom: 2px solid var(--bg); padding-bottom: 14px; }
+        details.card > div { padding: 0 18px 18px; }
+
+        h2 { font-size: 0.95rem; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid var(--bg); padding-bottom: 8px; margin-bottom: 15px; }
+
+        .btn { padding: 11px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; font-size: 0.85rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn-accent { background: var(--accent); color: #212121; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #edf2f7; padding: 10px; text-align: left; font-size: 0.7rem; color: var(--primary); text-transform: uppercase; border-bottom: 2px solid var(--border); white-space: nowrap; }
+        td { padding: 10px; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; font-weight: 700; font-size: 0.75rem; color: var(--primary); text-transform: uppercase; }
+        select, input[type="text"], input[type="date"], textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; }
+
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px; }
+
+        /* Checklist compacto tipo cuadrícula (optimizado para celular) */
+        .checklist-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+        @media (min-width: 640px) { .checklist-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1000px) { .checklist-grid { grid-template-columns: repeat(4, 1fr); } }
+        .check-item { border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: #f8fafc; display: flex; flex-direction: column; gap: 6px; }
+        .check-item .item-label { font-size: 0.68rem; font-weight: 700; color: var(--text-main); line-height: 1.25; min-height: 2.3em; }
+        .check-item .eval-btns { display: flex; gap: 6px; }
+        .check-item .eval-btn { flex: 1; padding: 9px 4px; text-align: center; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.72rem; font-weight: 600; background: #fff; color: #a0aec0; -webkit-tap-highlight-color: transparent; }
+        .check-item .eval-btn.nc.active { background: #f56565; color: white; border-color: #f56565; }
+
+        .chart-container { height: 260px; width: 100%; }
+
+        .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.72rem; white-space: nowrap; }
+        .bg-success { background: #c6f6d5; color: #22543d; }
+        .bg-warning { background: #feebc8; color: #744210; }
+        .bg-danger { background: #fed7d7; color: #822727; }
+
+        .view { display: none; }
+        .view.active { display: block; }
+
+        .filter-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 15px; }
+        .filter-row .form-group { flex: 1; min-width: 150px; margin-bottom: 0; }
+        .filter-row .btn { height: 42px; white-space: nowrap; }
+        .filter-row .btn:disabled { opacity: 0.45; }
+
+        .summary-line { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px; }
+        .empty-state { text-align: center; padding: 25px; color: var(--text-muted); font-size: 0.85rem; }
+
+        /* Tarjetas de historial por cortador */
+        .eval-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fff; }
+        .eval-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; flex-wrap: wrap; }
+        .eval-card-sub { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 6px; }
+        .eval-card-novedades { font-size: 0.82rem; }
+        .eval-card-novedades.ok { color: #22543d; }
+        .eval-card-novedades.bad { color: #822727; }
+        .eval-card-obs { font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; font-style: italic; }
+
+        @media (max-width: 640px) {
+            .container { width: 100%; padding: 0 10px; margin: 10px auto; }
+            .nav-item { padding: 10px 4px; font-size: 0.7rem; }
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+            .card { padding: 14px; }
+            .form-row { grid-template-columns: 1fr; }
+            .form-actions { flex-direction: column; }
+            .form-actions .btn { width: 100%; }
+            .filter-row .btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="brand">
+        <h1>Flores El Trigal - GHT</h1>
+        <span>Aseguramiento de Hidratación Campo</span>
+    </div>
+    <div style="text-align: right;">
+        <div id="headerDate" style="font-weight: 400; font-size: 0.85rem; opacity: 0.8;">-</div>
+        <div id="headerWeek" style="color: var(--accent); font-weight: 700;">SEMANA: --</div>
+        <div style="margin-top: 4px; font-size: 0.75rem; opacity: 0.85;">
+            <i class="fas fa-user"></i> <span id="current-user-name">-</span>
+            <i class="fas fa-sign-out-alt" id="btn-logout" style="margin-left: 10px; cursor: pointer;" title="Cerrar sesión"></i>
+        </div>
+    </div>
+</header>
+
+<!-- ===================== PANTALLA DE LOGIN ===================== -->
+<div id="login-screen" style="display: flex; align-items: center; justify-content: center; min-height: 75vh; padding: 20px;">
+    <div class="card" style="max-width: 340px; width: 100%; text-align: center;">
+        <div style="width: 52px; height: 52px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 14px;">
+            <i class="fas fa-lock" style="color: var(--accent); font-size: 1.3rem;"></i>
+        </div>
+        <h2 style="border: none; margin-bottom: 4px;">Iniciar sesión</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 20px;">Ingresa con tu cuenta de monitor de calidad</p>
+        <form id="login-form" style="text-align: left;">
+            <div class="form-group">
+                <label>Correo</label>
+                <input type="email" id="login-email" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label>Contraseña</label>
+                <input type="password" id="login-password" required autocomplete="current-password">
+            </div>
+            <div id="login-error" style="display: none; color: var(--danger); font-size: 0.78rem; margin-bottom: 10px;"></div>
+            <button type="submit" class="btn btn-accent" id="btn-login-submit" style="width: 100%;">Ingresar</button>
+        </form>
+        <p style="font-size: 0.72rem; color: #a0aec0; margin-top: 16px;">La sesión queda guardada en este celular</p>
+    </div>
+</div>
+
+<div class="container" id="app-content" style="display: none;">
+
+    <div class="main-nav">
+        <div class="nav-item active" id="nav-captura" onclick="app.switchTab('captura')">Captura</div>
+        <div class="nav-item" id="nav-datos" onclick="app.switchTab('datos')">Datos</div>
+        <div class="nav-item" id="nav-historial" onclick="app.switchTab('historial')">Historial</div>
+    </div>
+
+    <!-- ===================== VISTA: CAPTURA ===================== -->
+    <div class="view active" id="view-captura">
+
+        <div class="kpi-grid">
+            <div class="kpi-card"><i class="fas fa-percentage"></i><span class="label">Cumplimiento Gral.</span><span class="value" id="kpi-avg">0%</span></div>
+            <div class="kpi-card"><i class="fas fa-clipboard-list"></i><span class="label">Total Registros</span><span class="value" id="kpi-total">0</span></div>
+            <div class="kpi-card"><i class="fas fa-users"></i><span class="label">Cortadores</span><span class="value" id="kpi-cortadores">0%</span></div>
+            <div class="kpi-card"><i class="fas fa-bitbucket"></i><span class="label">Canecas/S.Madre</span><span class="value" id="kpi-canecas">0%</span></div>
+        </div>
+
+        <button class="btn btn-accent" id="btn-export-excel-top" onclick="app.exportExcel()" style="width: 100%; margin-bottom: 15px;">
+            <i class="fas fa-file-excel"></i> Exportar a Excel
+        </button>
+
+        <details class="card" id="admin-panel">
+            <summary><i class="fas fa-users-cog"></i> Gestión de Personal (Cortadores)</summary>
+            <div style="margin-top: 14px;">
+                <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+                    <input type="text" id="admin-name" placeholder="Nuevo nombre de cortador...">
+                    <button class="btn btn-primary" onclick="app.addPerson()" style="padding: 10px;"><i class="fas fa-plus"></i></button>
+                </div>
+                <div id="admin-list" style="max-height: 150px; overflow-y: auto; border: 1px solid #cbd5e0; border-radius: 4px;"></div>
+            </div>
+        </details>
+
+        <div class="card">
+            <h2><i class="fas fa-pen-nib"></i> Formulario de Aseguramiento</h2>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tipo de Registro</label>
+                    <select id="reg-mode" onchange="app.setMode(this.value)">
+                        <option value="Cortador">Cortador de Campo</option>
+                        <option value="Caneca">Caneca / Solución Madre</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Producto</label>
+                    <select id="reg-product">
+                        <option>Pompon</option><option>Micropompon</option><option>Solidago</option>
+                        <option>Snapdragon</option><option>Trachelium</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Asegurador</label>
+                    <div id="reg-insurer-display" style="padding: 10px; background: #edf2f7; border-radius: 6px; font-weight: 700; color: var(--primary); font-size: 0.9rem;">-</div>
+                </div>
+                <div class="form-group" id="sujeto-box">
+                    <label>Cortador</label>
+                    <select id="reg-subject"></select>
+                </div>
+            </div>
+
+            <label style="margin-top:5px;">Ítems de control (✓ conforme / ✗ no conforme)</label>
+            <div class="checklist-grid" id="checklist-body"></div>
+
+            <div class="form-group" style="margin-top: 12px;">
+                <label>Observaciones de Campo</label>
+                <textarea id="reg-obs" rows="2" placeholder="Escriba aquí los hallazgos..."></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-accent" onclick="app.saveRecord()">Cargar Información</button>
+                <button class="btn btn-danger" id="btn-clear-session" onclick="app.clearLocalSession()">Limpiar sesión</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2><i class="fas fa-history"></i> Registros Recientes</h2>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr><th>Fecha / Hora</th><th>Sujeto</th><th>Cumplimiento</th><th>Acción</th></tr>
+                    </thead>
+                    <tbody id="history-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== VISTA: DATOS ===================== -->
+    <div class="view" id="view-datos">
+
+        <div class="summary-line" id="datos-summary"></div>
+
+        <button class="btn btn-accent" onclick="app.exportExcel()" style="width: 100%; margin-bottom: 15px;">
+            <i class="fas fa-file-excel"></i> Exportar a Excel
+        </button>
+
+        <details class="card" id="filtros-panel">
+            <summary><i class="fas fa-filter"></i> Filtrar Registros</summary>
+            <div style="margin-top: 14px;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tipo</label>
+                        <select id="datos-tipo" onchange="app.renderDatos()">
+                            <option value="">Todos</option>
+                            <option value="Cortador">Cortador</option>
+                            <option value="Caneca">Caneca</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Sujeto</label>
+                        <select id="datos-sujeto" onchange="app.renderDatos()">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Desde</label>
+                        <input type="date" id="datos-desde" onchange="app.renderDatos()">
+                    </div>
+                    <div class="form-group">
+                        <label>Hasta</label>
+                        <input type="date" id="datos-hasta" onchange="app.renderDatos()">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" onclick="app.limpiarFiltrosDatos()">Limpiar filtros</button>
+                </div>
+            </div>
+        </details>
+
+        <div class="card">
+            <h2><i class="fas fa-table"></i> Registros</h2>
+            <div id="datos-list"></div>
+        </div>
+
+        <details class="card" id="chart-card">
+            <summary><i class="fas fa-chart-bar"></i> Tendencia Semanal</summary>
+            <div style="margin-top: 14px;">
+                <div class="chart-container">
+                    <canvas id="mainChart"></canvas>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn btn-primary" style="flex:1" onclick="app.exportExcel()">Exportar Excel</button>
+                    <button class="btn btn-danger" style="flex:1" onclick="app.exportPDF()">Exportar PDF</button>
+                </div>
+            </div>
+        </details>
+
+        <details class="card" id="config-panel">
+            <summary><i class="fas fa-calendar-check"></i> Configuración Temporal</summary>
+            <div style="margin-top: 14px;">
+                <div class="form-group">
+                    <label>Fecha de Evaluación</label>
+                    <input type="date" id="config-date" onchange="app.updateDate()">
+                </div>
+                <div id="date-info" style="font-size: 0.78rem; background: #edf2f7; padding: 10px; border-radius: 4px; color: var(--primary);"></div>
+            </div>
+        </details>
+    </div>
+
+    <!-- ===================== VISTA: HISTORIAL ===================== -->
+    <div class="view" id="view-historial">
+        <div class="card">
+            <h2><i class="fas fa-user-clock"></i> Historial por Cortador</h2>
+
+            <div class="filter-row">
+                <div class="form-group">
+                    <label>Cortador</label>
+                    <select id="historial-cutter" onchange="app.renderHistorial()"></select>
+                </div>
+                <button class="btn btn-danger" id="btn-historial-pdf" onclick="app.exportCutterPDF()">
+                    <i class="fas fa-file-pdf"></i> PDF de este cortador
+                </button>
+                <button class="btn btn-primary" id="btn-historial-pdf-todos" onclick="app.exportAllCuttersPDF()">
+                    <i class="fas fa-file-pdf"></i> PDF de todos los cortadores
+                </button>
+            </div>
+
+            <div class="summary-line" id="historial-summary"></div>
+
+            <div id="historial-list"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ---------- Conexión a Supabase (backend en la nube) ----------
+const SUPABASE_URL = 'https://youfqaacnalbroqpysrz.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_5ncXcNsTp-ASUc7Oy4ZV_Q_s_6gDk4t';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const app = {
+    mode: 'Cortador',
+    currentUser: null, // { id, display_name } — se llena al iniciar sesión
+    cutters: (function() {
+        // Si lo guardado está vacío (por ejemplo, de una prueba anterior),
+        // usa la lista sembrada en el código en vez de quedar en blanco para siempre.
+        // (un arreglo vacío [] es "verdadero" en JS, así que || no cae al valor por defecto)
+        const stored = JSON.parse(localStorage.getItem('ght_v2_cutters') || 'null');
+        return (stored && stored.length > 0) ? stored : ["AGUDELO ACEVEDO JOHANDRA", "AGUIRRE CASTILLO HASNEY JOHANA", "ALVAREZ ARIAS BEATRIZ EMILIA", "ALVAREZ ARIAS DUBAN ALFONSO", "ALVAREZ ENRIQUEZ JUAN DAVID", "ARANZAZU OROZCO GLADYS ELENA", "ARENAS TABARES ESMERALDA", "ARIAS GALLO SONIA MARLENY", "ARROYAVE HERRERA FLOR EDILIA", "AYAZO NAVARRO OSCAR DAVID", "BERRIO JULIO OMAR YESIT", "BOTERO BOTERO MARTHA GLORIA", "BRACHO SILVA RAFAEL", "BUITRAGO FRANCO NICOLAS", "CASTAÑO CASTAÑO JOHN EDISON", "CASTRILLON HERRERA OMAR ALEJANDRO", "CASTRO ARISTIZABAL ELKIN DARIO", "CEBALLOS BRAVO YULIANA", "CENTANARO DIAZ JESUS DAVID", "CERVANTE MIRANDA DIOGENES ALBERTO", "CORREA ROBLES JIMENA VALENTINA", "CRESPO DORANTES GREICELI VANESSA", "CRESPO DORANTES GREIMAR NATHALI", "CUADROS MARTINEZ KAREN VANESSA", "DELGADO BADEL MAYERLY", "DUQUE GARCIA CARLOS MARIO", "ENRIQUEZ MONTILLA MARLENY MARIBEL", "ESCOBAR PESTANA JEAN CARLOS", "ESTRADA ARANGO CRISTIAN ADRIAN", "ESTRADA FRANCO SIRLEY FERNANDA", "FIGUEROA ROJAS YUNEXI", "FLOREZ BELTRAN MIRYAN ESTHER", "GALLEGO RIOS LEONELA", "GALLON FORONDA DIANA MILENA", "GALVAN APARICIO BRAINER MIGUEL", "GARCIA FLOREZ ELISABET", "GIRALDO GOMEZ ELKIN DARIO", "GIRALDO RAMIREZ ORLANDO DE JESUS", "GOMEZ CARDONA DIANA YURLEY", "GOMEZ LARA JORGE DAVID", "GONZALEZ BUITRAGO LEONARDO FABIO", "GONZALEZ HINCAPIE CESAR AUGUSTO", "GUEJIA DAGUA ALDIBEY", "GUZMAN DANILO ANDRES", "HERNANDEZ CORREA NELVADIS", "HERNANDEZ HERRERA ALBERTO LUIS", "HOYOS ARANGO FELIX", "IDARRAGA AGUIRRE YARLEISON", "JIMENEZ CASTRO YEGLYS YAIRIMA", "MARIN MARTINEZ SOFIA DEL SOCORRO", "MARTINEZ GIRALDO ORLANDO OBED", "MEDINA CALDERA ISRAEL JOSE", "MENDOZA FUENTES ENITH MARIA", "MOJICA IPUANA LUZ ANDREA", "MONTALVO ANICHARICO YOR JAGI", "MORALES BLANDON DANIELA", "MORALES BLANDON YULIANA", "MORELO BADEL DANY ESTHER", "MURIEL ZAPATA DIANA MARIA", "MUÑOZ OSORIO GLORIA ELSY", "OCAMPO BERRIO CRISTIAN DANILO", "OJEDA MENDOZA ANDRES MODESTO", "ORTEGA JIMENEZ JESUS DAVID", "ORTIZ ORTIZ GLORIA JIMENA", "OSORIO CASTAÑEDA VERONICA", "OSORIO CASTAÑO MARISOL", "OSPINA HENAO ANLLY LORENA", "OSPINA OSPINA LIBARDO ANTONIO", "PADILLA DE AGUSTIN NEDY LUZ", "PATIÑO ROSERO DIANA ALEJANDRA", "PEREA GARCIA AULIO", "PEREZ GONZALEZ MILEIDYS", "PEREZ LOPEZ RODRIGO ANTONIO", "PEREZ MONTIEL DIANA PATRICIA", "PEREZ ZULUAGA DANIELA", "PEÑATE PEÑA MARY LUZ", "PINEDA CORREA LEONARDO DANIEL", "PORRAS MARTINEZ YAKELIN", "QUIJADA ARCOS TONY ORLANDO", "QUINCHIA CARDONA JAVIER DARIO", "QUINTERO GIRALDO MARISOL", "QUINTERO GIRALDO TATIANA ANDREA", "RAMOS CARRASCAL JAVIER", "RAMOS MESA LUIS ALBERTO", "RODAS ESCOBAR ALEXANDER", "RODRIGUEZ HOLGUIN NEIDER SEBASTIAN", "ROJAS OCAMPO JORGE IVAN", "ROMERO CONTRERAS YENIFER", "ROQUEME MUSLACO LUIS GABRIEL", "ROSALES QUIROZ EDITH CANDELARIA", "RUIZ ACEVEDO HECTOR DE JESUS", "SALAZAR HERNANDEZ BERTHA INES", "SANCHEZ MARTINEZ BLEIDIS EDITH", "SEQUERA GUEVARA ROXANA HEIDI", "SILVA GONZALEZ CARLOS MARIO", "SOTELO NARVAEZ LIBIA MERCEDES", "SUAZA FLOREZ JUAN PABLO", "SUAZA FLOREZ SIMON", "TIRADO MONTIEL FRAN STUARD", "TUIRAN NAVARRO DANIELA", "USUGA GUZMAN YUBER", "VALENCIA GOMEZ CARLOS ANDRES", "VALENCIA GOMEZ LILIANA PATRICIA", "VALENCIA QUINTERO EFRAIN ANTONIO", "VASQUEZ SANCHEZ RONALDI", "VERA CASTAÑEDA CARLOS ARTURO", "VICHE RUIZ LINEY ROCIO", "VILLA CARRILLO DANILO JOSE", "VILLAMIZAR VERGARA VALENTINA", "VILLAREAL ESPITIA JORGE ANDRES", "ZAPATA ATEHORTUA EDGAR ALONSO"];
+    })(),
+    records: JSON.parse(localStorage.getItem('ght_v2_records')) || [],
+    items: {
+        'Cortador': ["Balde conforme", "Presencia de cloro", "Limpieza solución", "Balde limpio y sin lama", "Nivel solución (5-10cm)", "Hay exceso de ramos por balde", "Tiempo de espera de la flor en campo", "Cumple con el cronograma de lavado", "Limpieza desayuno", "Limpieza tarde", "Hay caneca de campo", "Hay cloro", "Hay agua", "Solución < 10cm"],
+        'Caneca': ["S. Madre conforme", "Presencia de cloro", "Limpieza solución", "Recipiente sucio", "Aforado con tapa", "Dosificación", "Uso de EPPs", "Orden y aseo"]
+    },
+    currentEval: {},
+    currentTab: 'captura',
+
+    init() {
+        // Registros creados antes de existir el login no tienen insurer_id;
+        // se marcan como "ya resueltos" para que no se intenten subir a Supabase.
+        let touched = false;
+        this.records.forEach(r => {
+            if (r.synced === undefined) { r.synced = !r.insurer_id; touched = true; }
+            if (r.cloudId === undefined) { r.cloudId = null; touched = true; }
+        });
+        if (touched) this.persistRecords();
+
+        document.getElementById('reg-insurer-display').innerText = this.currentUser.display_name;
+        document.getElementById('current-user-name').innerText = this.currentUser.display_name;
+
+        document.getElementById('config-date').value = new Date().toISOString().split('T')[0];
+        this.updateDate();
+        this.renderSelectors();
+        this.renderChecklist();
+        this.renderAdminList();
+        this.renderHistory();
+        this.updateKPIs();
+        this.initChart();
+        this.renderDatos();
+        this.renderHistorial();
+
+        // El panel de la gráfica está colapsado por defecto; Chart.js necesita
+        // un resize() cuando el <details> se abre, porque antes tenía 0px de alto.
+        document.getElementById('chart-card').addEventListener('toggle', (e) => {
+            if (e.target.open && this.chart) this.chart.resize();
+        });
+    },
+
+    // ---------- Navegación entre pestañas ----------
+    switchTab(name) {
+        this.currentTab = name;
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(`view-${name}`).classList.add('active');
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(`nav-${name}`).classList.add('active');
+
+        if (name === 'datos') {
+            this.renderDatos();
+            // El gráfico pudo haberse creado mientras esta pestaña estaba oculta; se re-ajusta al mostrarse.
+            if (this.chart) this.chart.resize();
+        }
+        if (name === 'historial') this.renderHistorial();
+    },
+
+    updateDate() {
+        const val = document.getElementById('config-date').value;
+        const d = new Date(val + 'T00:00:00');
+        const start = new Date(d.setDate(d.getDate() - d.getDay()));
+        const end = new Date(d.setDate(d.getDate() + 6));
+
+        const target = new Date(d.valueOf());
+        const dayNr = (d.getDay() + 6) % 7;
+        target.setDate(target.getDate() - dayNr + 3);
+        const firstThursday = target.valueOf();
+        target.setMonth(0, 1);
+        if (target.getDay() !== 4) { target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7); }
+        const week = 1 + Math.ceil((firstThursday - target) / 604800000);
+
+        this.currentWeek = week;
+        document.getElementById('headerWeek').innerText = `SEMANA: ${week}`;
+        document.getElementById('headerDate').innerText = new Date(val + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        document.getElementById('date-info').innerText = `Rango Semana: ${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
+    },
+
+    setMode(m) {
+        this.mode = m;
+        document.getElementById('sujeto-box').style.display = m === 'Cortador' ? 'block' : 'none';
+        this.renderChecklist();
+    },
+
+    getSortedCutters() {
+        return [...this.cutters].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+    },
+
+    renderSelectors() {
+        document.getElementById('reg-subject').innerHTML = this.getSortedCutters().map(n => `<option>${n}</option>`).join('');
+        this.renderHistorialSelector();
+    },
+
+    // ---------- Checklist compacto (cuadrícula móvil) ----------
+    // Todos los ítems parten en "Conforme" por defecto; el inspector solo
+    // interactúa con los que estén mal, marcándolos como "No conforme".
+    renderChecklist() {
+        const list = this.items[this.mode];
+        this.currentEval = {};
+        list.forEach((item, i) => { this.currentEval[i] = 'C'; });
+        document.getElementById('checklist-body').innerHTML = list.map((item, i) => `
+            <div class="check-item">
+                <div class="item-label">${item}</div>
+                <div class="eval-btns">
+                    <div class="eval-btn nc" id="nc-${i}" onclick="app.toggleEval(${i})">
+                        <i class="fas fa-times"></i> No conforme
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    },
+
+    toggleEval(idx) {
+        const btn = document.getElementById(`nc-${idx}`);
+        if (this.currentEval[idx] === 'NC') {
+            this.currentEval[idx] = 'C';
+            btn.classList.remove('active');
+        } else {
+            this.currentEval[idx] = 'NC';
+            btn.classList.add('active');
+        }
+    },
+
+    saveRecord() {
+        const total = this.items[this.mode].length;
+        if(Object.keys(this.currentEval).length < total) return alert('Complete todos los ítems');
+
+        const cCount = Object.values(this.currentEval).filter(v => v === 'C').length;
+        const score = ((cCount / total) * 100).toFixed(1);
+        const now = new Date();
+
+        const rec = {
+            id: Date.now(),
+            date: document.getElementById('config-date').value,
+            week: this.currentWeek,
+            time: now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true }),
+            type: this.mode,
+            subject: this.mode === 'Cortador' ? document.getElementById('reg-subject').value : 'CANECA CENTRAL',
+            insurer: this.currentUser.display_name,
+            insurer_id: this.currentUser.id,
+            product: document.getElementById('reg-product').value,
+            score: parseFloat(score),
+            items: {...this.currentEval},
+            obs: document.getElementById('reg-obs').value,
+            synced: false,
+            cloudId: null
+        };
+
+        this.records.push(rec);
+        this.persistRecords();
+        this.resetForm();
+        this.renderHistory();
+        this.updateKPIs();
+        this.updateChartData();
+        this.renderDatos();
+        this.renderHistorial();
+        alert('Información cargada correctamente');
+        this.syncRecord(rec); // intenta subirlo a Supabase de inmediato; si falla, queda pendiente
+    },
+
+    persistRecords() {
+        localStorage.setItem('ght_v2_records', JSON.stringify(this.records));
+    },
+
+    // ---------- Sincronización con Supabase (patrón "outbox") ----------
+    async syncRecord(rec) {
+        if (!rec.insurer_id || rec.synced) return; // registros viejos sin cuenta asociada no se sincronizan
+        try {
+            const { data, error } = await supabaseClient.from('records').insert({
+                insurer_id: rec.insurer_id,
+                insurer_name: rec.insurer,
+                record_date: rec.date,
+                record_time: rec.time,
+                week: rec.week,
+                type: rec.type,
+                subject: rec.subject,
+                product: rec.product,
+                score: rec.score,
+                obs: rec.obs,
+                checklist: rec.items
+            }).select('id').single();
+            if (error) throw error;
+            rec.synced = true;
+            rec.cloudId = data.id;
+            this.persistRecords();
+            this.renderDatos();
+        } catch (e) {
+            console.warn('No se pudo sincronizar el registro (queda pendiente):', e.message || e);
+        }
+    },
+
+    async syncPending() {
+        const pending = this.records.filter(r => r.insurer_id && !r.synced);
+        for (const rec of pending) { await this.syncRecord(rec); }
+    },
+
+    resetForm() {
+        this.renderChecklist();
+        document.getElementById('reg-obs').value = '';
+    },
+
+    // ---------- Limpiar sesión: borra lo acumulado en ESTE celular ----------
+    // No borra nada de Supabase — el historial en la nube se conserva día a
+    // día. Antes de borrar, intenta subir cualquier registro pendiente para
+    // no perder datos que aún no hayan llegado a la nube.
+    async clearLocalSession() {
+        const btn = document.getElementById('btn-clear-session');
+        if (btn) { btn.disabled = true; btn.innerText = 'Sincronizando...'; }
+
+        await this.syncPending();
+
+        const pending = this.records.filter(r => r.insurer_id && !r.synced);
+        if (btn) { btn.disabled = false; btn.innerText = 'Limpiar sesión'; }
+
+        if (pending.length > 0) {
+            alert(`No se puede limpiar todavía: hay ${pending.length} registro(s) sin subir a la nube (sin señal). Conéctate a internet e intenta de nuevo.`);
+            return;
+        }
+
+        if (!confirm('Esto borra los registros guardados en este celular (ya están respaldados en la nube). ¿Continuar?')) return;
+
+        this.records = [];
+        this.persistRecords();
+        this.resetForm();
+        this.renderHistory();
+        this.updateKPIs();
+        this.updateChartData();
+        this.renderDatos();
+        this.renderHistorial();
+        alert('Listo. Este celular quedó limpio para empezar el día.');
+    },
+
+    renderHistory() {
+        const recent = this.records.slice(-5).reverse();
+        document.getElementById('history-body').innerHTML = recent.length ? recent.map(r => `
+            <tr>
+                <td>${r.date}${r.time ? ' · ' + r.time : ''}</td>
+                <td>${r.subject}</td>
+                <td><span class="badge ${r.score >= 90 ? 'bg-success' : (r.score >= 70 ? 'bg-warning' : 'bg-danger')}">${r.score}%</span></td>
+                <td><i class="fas fa-trash" style="color:#cbd5e0; cursor:pointer" onclick="app.deleteRecord(${r.id})"></i></td>
+            </tr>
+        `).join('') : `<tr><td colspan="4" class="empty-state">Aún no hay registros</td></tr>`;
+    },
+
+    async deleteRecord(id) {
+        if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
+        const rec = this.records.find(r => r.id === id);
+        if (rec && rec.cloudId) {
+            try { await supabaseClient.from('records').delete().eq('id', rec.cloudId); }
+            catch (e) { console.warn('No se pudo borrar en la nube (se borra solo localmente):', e.message || e); }
+        }
+        this.records = this.records.filter(r => r.id !== id);
+        this.persistRecords();
+        this.renderHistory();
+        this.updateKPIs();
+        this.updateChartData();
+        this.renderDatos();
+        this.renderHistorial();
+    },
+
+    updateKPIs() {
+        const total = this.records.length;
+        document.getElementById('kpi-total').innerText = total;
+        document.getElementById('kpi-avg').innerText = '0%';
+        document.getElementById('kpi-cortadores').innerText = '0%';
+        document.getElementById('kpi-canecas').innerText = '0%';
+        if(total === 0) return;
+
+        const avg = (this.records.reduce((a,b) => a + b.score, 0) / total).toFixed(1);
+        document.getElementById('kpi-avg').innerText = avg + '%';
+
+        const corts = this.records.filter(r => r.type === 'Cortador');
+        if(corts.length > 0) {
+            const cAvg = (corts.reduce((a,b) => a + b.score, 0) / corts.length).toFixed(1);
+            document.getElementById('kpi-cortadores').innerText = cAvg + '%';
+        }
+
+        const cans = this.records.filter(r => r.type === 'Caneca');
+        if(cans.length > 0) {
+            const nAvg = (cans.reduce((a,b) => a + b.score, 0) / cans.length).toFixed(1);
+            document.getElementById('kpi-canecas').innerText = nAvg + '%';
+        }
+    },
+
+    addPerson() {
+        const name = document.getElementById('admin-name').value.trim();
+        if(!name) return;
+        if (this.cutters.some(n => n.toLowerCase() === name.toLowerCase())) {
+            alert('Ese nombre ya está en la lista.');
+            return;
+        }
+        this.cutters.push(name);
+        localStorage.setItem('ght_v2_cutters', JSON.stringify(this.cutters));
+        document.getElementById('admin-name').value = '';
+        this.renderAdminList();
+        this.renderSelectors();
+    },
+
+    renderAdminList() {
+        const sorted = this.getSortedCutters();
+        document.getElementById('admin-list').innerHTML = sorted.length ? sorted.map(n => `
+            <div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #eee; font-size:0.8rem">
+                ${n} <i class="fas fa-times" style="color:red; cursor:pointer" onclick="app.removePerson('${n.replace(/'/g, "\\'")}')"></i>
+            </div>
+        `).join('') : `<div class="empty-state">Sin registros</div>`;
+    },
+
+    removePerson(name) {
+        if (!confirm(`¿Quitar a "${name}" de la lista de cortadores?`)) return;
+        this.cutters = this.cutters.filter(n => n !== name);
+        localStorage.setItem('ght_v2_cutters', JSON.stringify(this.cutters));
+        this.renderAdminList();
+        this.renderSelectors();
+    },
+
+    // ---------- Gráfico (barras) ----------
+    initChart() {
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        this.chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'],
+                datasets: [{ label: '% Cumplimiento', data: [0,0,0,0,0,0,0], backgroundColor: '#c19a3b', borderRadius: 4, maxBarThickness: 45 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
+            }
+        });
+        this.updateChartData();
+    },
+
+    updateChartData() {
+        if(!this.chart) return;
+        const data = [1,2,3,4,5,6,0].map(day => {
+            const dayRecs = this.records.filter(r => new Date(r.date + 'T00:00:00').getDay() === day);
+            return dayRecs.length ? Number((dayRecs.reduce((a,b) => a + b.score, 0) / dayRecs.length).toFixed(1)) : 0;
+        });
+        this.chart.data.datasets[0].data = data;
+        this.chart.update();
+    },
+
+    // ---------- Vista Datos ----------
+    getDatosFiltered() {
+        const tipo = document.getElementById('datos-tipo').value;
+        const sujeto = document.getElementById('datos-sujeto').value;
+        const desde = document.getElementById('datos-desde').value;
+        const hasta = document.getElementById('datos-hasta').value;
+
+        return this.records
+            .filter(r => !tipo || r.type === tipo)
+            .filter(r => !sujeto || r.subject === sujeto)
+            .filter(r => !desde || r.date >= desde)
+            .filter(r => !hasta || r.date <= hasta)
+            .slice()
+            .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+    },
+
+    renderDatos() {
+        const sujetoSelect = document.getElementById('datos-sujeto');
+        const currentVal = sujetoSelect.value;
+        const distinctSubjects = [...new Set(this.records.map(r => r.subject))].sort();
+        sujetoSelect.innerHTML = `<option value="">Todos</option>` + distinctSubjects.map(s => `<option ${s === currentVal ? 'selected' : ''}>${s}</option>`).join('');
+
+        const filtered = this.getDatosFiltered();
+        document.getElementById('datos-summary').innerText = `Mostrando ${filtered.length} de ${this.records.length} registros totales`;
+
+        document.getElementById('datos-list').innerHTML = filtered.length ? filtered.map(r => `
+            <div class="eval-card">
+                <div class="eval-card-header">
+                    <strong>${r.subject}</strong>
+                    <span class="badge ${r.score >= 90 ? 'bg-success' : (r.score >= 70 ? 'bg-warning' : 'bg-danger')}">${r.score}%</span>
+                </div>
+                <div class="eval-card-sub">${r.date}${r.time ? ' · ' + r.time : ''} · Semana ${r.week} · ${r.type}</div>
+                <div class="eval-card-sub">Producto: ${r.product} · Aseguró: ${r.insurer}</div>
+                ${r.obs ? `<div class="eval-card-obs">${r.obs}</div>` : ''}
+                <div style="text-align: right; margin-top: 8px;">
+                    <i class="fas fa-trash" style="color:#cbd5e0; cursor:pointer" onclick="app.deleteRecord(${r.id})"></i>
+                </div>
+            </div>
+        `).join('') : `<div class="empty-state">No hay registros que coincidan con los filtros</div>`;
+    },
+
+    limpiarFiltrosDatos() {
+        document.getElementById('datos-tipo').value = '';
+        document.getElementById('datos-sujeto').value = '';
+        document.getElementById('datos-desde').value = '';
+        document.getElementById('datos-hasta').value = '';
+        this.renderDatos();
+    },
+
+    // ---------- Vista Historial (por cortador) ----------
+    renderHistorialSelector() {
+        const sel = document.getElementById('historial-cutter');
+        const currentVal = sel.value;
+        const sorted = this.getSortedCutters();
+        sel.innerHTML = sorted.length
+            ? sorted.map(n => `<option ${n === currentVal ? 'selected' : ''}>${n}</option>`).join('')
+            : `<option value="">Sin cortadores registrados</option>`;
+    },
+
+    getHistorialRecords() {
+        const name = document.getElementById('historial-cutter').value;
+        return this.records
+            .filter(r => r.type === 'Cortador' && r.subject === name)
+            .slice()
+            .sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
+    },
+
+    getFailedItems(r) {
+        const labels = this.items[r.type] || [];
+        return Object.keys(r.items)
+            .filter(idx => r.items[idx] === 'NC')
+            .map(idx => labels[idx])
+            .filter(Boolean);
+    },
+
+    renderHistorial() {
+        this.renderHistorialSelector();
+        const name = document.getElementById('historial-cutter').value;
+        const recs = this.getHistorialRecords();
+        const pdfBtn = document.getElementById('btn-historial-pdf');
+        pdfBtn.disabled = !recs.length;
+
+        const pdfAllBtn = document.getElementById('btn-historial-pdf-todos');
+        const anyCutterHasRecords = this.records.some(r => r.type === 'Cortador');
+        pdfAllBtn.disabled = !anyCutterHasRecords;
+
+        if (!name || !recs.length) {
+            document.getElementById('historial-summary').innerText = name
+                ? `${name} aún no tiene evaluaciones registradas`
+                : 'No hay cortadores registrados en Gestión de Personal (pestaña Captura)';
+            document.getElementById('historial-list').innerHTML = `<div class="empty-state">Sin registros</div>`;
+            return;
+        }
+
+        const avg = (recs.reduce((a,b) => a + b.score, 0) / recs.length).toFixed(1);
+        document.getElementById('historial-summary').innerText = `${name} — ${recs.length} evaluaciones — Cumplimiento promedio: ${avg}%`;
+
+        document.getElementById('historial-list').innerHTML = recs.slice().reverse().map(r => {
+            const failed = this.getFailedItems(r);
+            return `
+                <div class="eval-card">
+                    <div class="eval-card-header">
+                        <div><strong>${r.date}</strong> · ${r.time || '-'} <span style="color:var(--text-muted); font-size:0.72rem;">(Semana ${r.week})</span></div>
+                        <span class="badge ${r.score >= 90 ? 'bg-success' : (r.score >= 70 ? 'bg-warning' : 'bg-danger')}">${r.score}%</span>
+                    </div>
+                    <div class="eval-card-sub">Aseguró: <strong>${r.insurer}</strong> · Producto: ${r.product}</div>
+                    <div class="eval-card-novedades ${failed.length ? 'bad' : 'ok'}">
+                        ${failed.length
+                            ? `<i class="fas fa-triangle-exclamation"></i> <strong>Novedades:</strong> ${failed.join(', ')}`
+                            : `<i class="fas fa-circle-check"></i> Sin novedades — cumplió todos los ítems`}
+                    </div>
+                    ${r.obs ? `<div class="eval-card-obs">Obs: ${r.obs}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+    },
+
+    // Dibuja la sección de un cortador (encabezado + tabla) en el documento PDF dado, a partir de startY.
+    // Devuelve la posición Y final tras dibujar, para poder encadenar contenido si hace falta.
+    drawCutterPDFSection(doc, name, recs, startY) {
+        doc.setFillColor(26, 58, 108);
+        doc.rect(0, 0, 297, 24, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(15);
+        doc.text('Flores El Trigal - GHT', 10, 11);
+        doc.setFontSize(9.5);
+        doc.text('Historial de Aseguramiento de Hidratación - Cortador de Campo', 10, 18);
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(13);
+        doc.text(`Cortador: ${name}`, 10, 33);
+
+        const avg = (recs.reduce((a,b) => a + b.score, 0) / recs.length).toFixed(1);
+        doc.setFontSize(9.5);
+        doc.setTextColor(80, 80, 80);
+        doc.text(`Total de evaluaciones: ${recs.length}    |    Cumplimiento promedio: ${avg}%    |    Generado: ${new Date().toLocaleDateString('es-ES')}`, 10, 40);
+
+        doc.autoTable({
+            startY: 46,
+            head: [['Fecha', 'Hora', 'Semana', 'Aseguró', '% Cumpl.', 'Producto', 'Novedades (ítems no conformes)']],
+            body: recs.map(r => {
+                const failed = this.getFailedItems(r);
+                return [r.date, r.time || '-', r.week, r.insurer, r.score + '%', r.product, failed.length ? failed.join(', ') : 'Sin novedades'];
+            }),
+            headStyles: { fillColor: [26, 58, 108], textColor: 255, fontSize: 9 },
+            styles: { fontSize: 8, cellPadding: 3, valign: 'middle', overflow: 'linebreak' },
+            columnStyles: {
+                0: { cellWidth: 25 }, 1: { cellWidth: 18 }, 2: { cellWidth: 18 },
+                3: { cellWidth: 32 }, 4: { cellWidth: 20 }, 5: { cellWidth: 30 },
+                6: { cellWidth: 'auto' }
+            },
+            didParseCell: (data) => {
+                if (data.section === 'body' && data.column.index === 4) {
+                    const val = parseFloat(data.cell.raw);
+                    if (val >= 90) data.cell.styles.textColor = [34, 84, 61];
+                    else if (val >= 70) data.cell.styles.textColor = [116, 66, 16];
+                    else data.cell.styles.textColor = [130, 39, 39];
+                }
+                if (data.section === 'body' && data.column.index === 6 && data.cell.raw !== 'Sin novedades') {
+                    data.cell.styles.textColor = [130, 39, 39];
+                }
+            }
+        });
+
+        const finalY = doc.lastAutoTable.finalY + 10;
+        doc.setFontSize(7.5);
+        doc.setTextColor(120, 120, 120);
+        doc.text('Documento generado automáticamente por el sistema GHT - Flores El Trigal. Para uso interno de campo y retroalimentación.', 10, Math.min(finalY, 200));
+        return finalY;
+    },
+
+    exportCutterPDF() {
+        const name = document.getElementById('historial-cutter').value;
+        const recs = this.getHistorialRecords();
+        if (!name || !recs.length) return alert('Este cortador no tiene registros para exportar');
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('l', 'mm', 'a4');
+        this.drawCutterPDFSection(doc, name, recs, 46);
+        doc.save(`Historial_${name.replace(/\s+/g, '_')}.pdf`);
+    },
+
+    // Genera un único PDF con la retroalimentación de TODOS los cortadores (una sección/página por cortador),
+    // para no tener que descargar uno por uno.
+    exportAllCuttersPDF() {
+        const corts = this.records.filter(r => r.type === 'Cortador');
+        if (!corts.length) return alert('No hay evaluaciones de cortadores para exportar');
+
+        const names = [...new Set(corts.map(r => r.subject))].sort();
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('l', 'mm', 'a4');
+
+        names.forEach((name, i) => {
+            if (i > 0) doc.addPage();
+            const recs = corts
+                .filter(r => r.subject === name)
+                .slice()
+                .sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
+            this.drawCutterPDFSection(doc, name, recs, 46);
+        });
+
+        doc.save(`Historial_Todos_los_Cortadores_${new Date().toISOString().split('T')[0]}.pdf`);
+    },
+
+    // ---------- Exportaciones generales ----------
+    getCutterSummary() {
+        const corts = this.records.filter(r => r.type === 'Cortador');
+        const byName = {};
+        corts.forEach(r => {
+            if (!byName[r.subject]) byName[r.subject] = [];
+            byName[r.subject].push(r.score);
+        });
+        return Object.keys(byName).sort().map(name => {
+            const scores = byName[name];
+            return { name, count: scores.length, avg: (scores.reduce((a,b) => a+b, 0) / scores.length).toFixed(1) };
+        });
+    },
+
+    exportExcel() {
+        if(!this.records.length) return alert('Sin datos');
+        const data = this.records.map(r => {
+            const row = { "Fecha": r.date, "Hora": r.time || '-', "Semana": r.week, "Tipo": r.type, "Sujeto": r.subject, "Producto": r.product, "Asegurador": r.insurer, "%": r.score };
+            this.items[r.type].forEach((name, i) => row[name] = r.items[i] || '-');
+            row["Observaciones"] = r.obs;
+            return row;
+        });
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+        XLSX.writeFile(wb, "GHT_Hidratacion.xlsx");
+    },
+
+    async exportPDF() {
+        if(!this.records.length) return alert('Sin datos para exportar');
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4');
+
+        doc.setFillColor(26, 58, 108);
+        doc.rect(0, 0, 210, 30, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(20);
+        doc.text("GHT - Reporte de Hidratación", 10, 20);
+        doc.setFontSize(10);
+        doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')}`, 145, 20);
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(13);
+        doc.text('Tendencia Semanal de Cumplimiento (%)', 10, 42);
+
+        if (this.chart) this.chart.resize();
+        const imgWidth = 190;
+        const imgHeight = imgWidth * (this.chart.canvas.height / this.chart.canvas.width);
+        const chartImg = this.chart.toBase64Image('image/png', 1.0);
+        doc.addImage(chartImg, 'PNG', 10, 47, imgWidth, imgHeight);
+
+        let y = 47 + imgHeight + 12;
+        doc.setFontSize(11);
+        doc.text(`Semana actual: ${this.currentWeek}`, 10, y);
+        doc.text(`Cumplimiento promedio general: ${document.getElementById('kpi-avg').innerText}`, 90, y);
+        y += 7;
+        doc.text(`Total de registros: ${document.getElementById('kpi-total').innerText}`, 10, y);
+        doc.text(`Cortadores: ${document.getElementById('kpi-cortadores').innerText}`, 90, y);
+        doc.text(`Canecas/S.Madre: ${document.getElementById('kpi-canecas').innerText}`, 150, y);
+        y += 10;
+
+        const summary = this.getCutterSummary();
+        if (summary.length && doc.autoTable) {
+            doc.setFontSize(12);
+            doc.text('Resumen por Cortador', 10, y);
+            doc.autoTable({
+                startY: y + 4,
+                head: [['Cortador', 'Registros', '% Promedio']],
+                body: summary.map(s => [s.name, s.count, s.avg + '%']),
+                headStyles: { fillColor: [26, 58, 108], textColor: 255, fontSize: 9 },
+                styles: { fontSize: 9 }
+            });
+        }
+
+        doc.save("Reporte_GHT.pdf");
+    }
+};
+
+// ---------- Autenticación (Supabase Auth) ----------
+async function showApp(profile) {
+    app.currentUser = profile;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-content').style.display = 'block';
+    app.init();
+    app.syncPending();
+}
+
+async function loadProfileAndShow(userId) {
+    const { data, error } = await supabaseClient.from('profiles').select('id, display_name').eq('id', userId).single();
+    if (error || !data) {
+        console.warn('No se pudo cargar el perfil:', error && error.message);
+        await supabaseClient.auth.signOut();
+        document.getElementById('login-error').innerText = 'No se encontró tu perfil. Contacta al administrador.';
+        document.getElementById('login-error').style.display = 'block';
+        document.getElementById('login-screen').style.display = 'flex';
+        return;
+    }
+    showApp(data);
+}
+
+async function checkSession() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) { await loadProfileAndShow(session.user.id); }
+    else { document.getElementById('login-screen').style.display = 'flex'; }
+}
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errEl = document.getElementById('login-error');
+    const btn = document.getElementById('btn-login-submit');
+    errEl.style.display = 'none';
+    btn.disabled = true; btn.innerText = 'Ingresando...';
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+    btn.disabled = false; btn.innerText = 'Ingresar';
+    if (error) {
+        errEl.innerText = 'Correo o contraseña incorrectos.';
+        errEl.style.display = 'block';
+        return;
+    }
+    await loadProfileAndShow(data.user.id);
+});
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+    if (!confirm('¿Cerrar sesión?')) return;
+    await supabaseClient.auth.signOut();
+    location.reload();
+});
+
+window.addEventListener('online', () => { if (app.currentUser) app.syncPending(); });
+
+checkSession();
+
+// ---------- Registro del Service Worker (soporte offline) ----------
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW no registrado:', err));
+    });
+}
+</script>
+</body>
+</html>
