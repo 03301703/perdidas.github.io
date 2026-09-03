@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -288,7 +287,7 @@
 
             <div class="form-actions">
                 <button class="btn btn-accent" onclick="app.saveRecord()">Cargar Información</button>
-                <button class="btn btn-danger" onclick="app.resetForm()">Limpiar sesión</button>
+                <button class="btn btn-danger" id="btn-clear-session" onclick="app.clearLocalSession()">Limpiar sesión</button>
             </div>
         </div>
 
@@ -611,6 +610,37 @@ const app = {
     resetForm() {
         this.renderChecklist();
         document.getElementById('reg-obs').value = '';
+    },
+
+    // ---------- Limpiar sesión: borra lo acumulado en ESTE celular ----------
+    // No borra nada de Supabase — el historial en la nube se conserva día a
+    // día. Antes de borrar, intenta subir cualquier registro pendiente para
+    // no perder datos que aún no hayan llegado a la nube.
+    async clearLocalSession() {
+        const btn = document.getElementById('btn-clear-session');
+        if (btn) { btn.disabled = true; btn.innerText = 'Sincronizando...'; }
+
+        await this.syncPending();
+
+        const pending = this.records.filter(r => r.insurer_id && !r.synced);
+        if (btn) { btn.disabled = false; btn.innerText = 'Limpiar sesión'; }
+
+        if (pending.length > 0) {
+            alert(`No se puede limpiar todavía: hay ${pending.length} registro(s) sin subir a la nube (sin señal). Conéctate a internet e intenta de nuevo.`);
+            return;
+        }
+
+        if (!confirm('Esto borra los registros guardados en este celular (ya están respaldados en la nube). ¿Continuar?')) return;
+
+        this.records = [];
+        this.persistRecords();
+        this.resetForm();
+        this.renderHistory();
+        this.updateKPIs();
+        this.updateChartData();
+        this.renderDatos();
+        this.renderHistorial();
+        alert('Listo. Este celular quedó limpio para empezar el día.');
     },
 
     renderHistory() {
