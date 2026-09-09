@@ -1,0 +1,1393 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GHT - Aseguramiento de Hidratación Campo</title>
+
+    <!-- PWA -->
+    <meta name="theme-color" content="#1a3a6c">
+    <meta name="description" content="Flores El Trigal - Aseguramiento de Hidratación Campo (GHT)">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GHT Trigal">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #1a3a6c;
+            --primary-light: #2c5282;
+            --accent: #c19a3b;
+            --accent-hover: #a68132;
+            --danger: #c62828;
+            --bg: #f4f7f9;
+            --card-bg: #ffffff;
+            --text-main: #1a202c;
+            --text-muted: #4a5568;
+            --border: #cbd5e0;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        body { background-color: var(--bg); color: var(--text-main); margin: 0; padding: 0; }
+
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 10px 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 4px solid var(--accent);
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .brand h1 { margin: 0; font-size: 1.1rem; font-weight: 400; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; }
+        .brand span { font-size: 1.6rem; font-weight: 800; color: white; display: block; line-height: 1.1; }
+
+        .container { width: 95%; max-width: 1400px; margin: 15px auto; }
+
+        .main-nav { display: flex; background-color: var(--primary-light); margin-bottom: 15px; border-radius: 4px; overflow: hidden; }
+        .nav-item { flex: 1; padding: 12px 4px; text-align: center; color: white; text-transform: uppercase; font-weight: 600; cursor: pointer; transition: 0.3s; user-select: none; font-size: 0.85rem; }
+        .nav-item.active { background-color: var(--primary); border-bottom: 3px solid var(--accent); }
+
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .kpi-card { background: var(--card-bg); padding: 14px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-top: 4px solid var(--primary); text-align: left; }
+        .kpi-card i { font-size: 1.3rem; color: var(--accent); float: right; }
+        .kpi-card .value { font-size: 1.6rem; font-weight: 700; color: var(--primary); display: block; }
+        .kpi-card .label { color: var(--text-muted); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
+
+        .card { background: var(--card-bg); border-radius: 8px; padding: 18px; margin-bottom: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+
+        /* Panel colapsable (Gestión de Personal en la vista Captura) */
+        details.card { padding: 0; }
+        details.card summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 16px 18px;
+            font-size: 0.95rem;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        details.card summary::-webkit-details-marker { display: none; }
+        details.card summary::after {
+            content: "\f078";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            font-size: 0.8rem;
+            color: var(--accent);
+            transition: transform 0.2s;
+            flex-shrink: 0;
+            margin-left: 10px;
+        }
+        details.card[open] summary::after { transform: rotate(180deg); }
+        details.card[open] summary { border-bottom: 2px solid var(--bg); padding-bottom: 14px; }
+        details.card > div { padding: 0 18px 18px; }
+
+        h2 { font-size: 0.95rem; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid var(--bg); padding-bottom: 8px; margin-bottom: 15px; }
+
+        .btn { padding: 11px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; font-size: 0.85rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn-accent { background: var(--accent); color: #212121; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #edf2f7; padding: 10px; text-align: left; font-size: 0.7rem; color: var(--primary); text-transform: uppercase; border-bottom: 2px solid var(--border); white-space: nowrap; }
+        td { padding: 10px; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; font-weight: 700; font-size: 0.75rem; color: var(--primary); text-transform: uppercase; }
+        select, input[type="text"], input[type="date"], textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; }
+
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px; }
+
+        /* Checklist compacto tipo cuadrícula (optimizado para celular) */
+        .checklist-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+        @media (min-width: 640px) { .checklist-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1000px) { .checklist-grid { grid-template-columns: repeat(4, 1fr); } }
+        .check-item { border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: #f8fafc; display: flex; flex-direction: column; gap: 6px; }
+        .check-item .item-label { font-size: 0.68rem; font-weight: 700; color: var(--text-main); line-height: 1.25; min-height: 2.3em; }
+        .check-item .eval-btns { display: flex; gap: 6px; }
+        .check-item .eval-btn { flex: 1; padding: 9px 4px; text-align: center; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.72rem; font-weight: 600; background: #fff; color: #a0aec0; -webkit-tap-highlight-color: transparent; }
+        .check-item .eval-btn.nc.active { background: #f56565; color: white; border-color: #f56565; }
+
+        .jornada-toggles { display: flex; gap: 6px; }
+        .jornada-btn { flex: 1; padding: 10px 4px; text-align: center; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: 600; background: #fff; color: #718096; -webkit-tap-highlight-color: transparent; user-select: none; }
+        .jornada-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid var(--border); border-top: none; border-radius: 0 0 6px 6px; max-height: 220px; overflow-y: auto; z-index: 50; box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: none; }
+        .autocomplete-list.show { display: block; }
+        .autocomplete-item { padding: 11px 12px; font-size: 0.82rem; cursor: pointer; border-bottom: 1px solid #f0f0f0; -webkit-tap-highlight-color: transparent; }
+        .autocomplete-item:last-child { border-bottom: none; }
+        .autocomplete-item:active { background: #edf2f7; }
+        .autocomplete-empty { padding: 11px 12px; font-size: 0.8rem; color: var(--text-muted); }
+
+        .btn-sm { font-size: 0.76rem; padding: 9px 6px; }
+
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--primary); color: #fff; padding: 11px 18px; border-radius: 30px; font-size: 0.8rem; box-shadow: 0 4px 12px rgba(0,0,0,0.25); z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.3s; max-width: 90%; text-align: center; }
+        .toast.show { opacity: 1; }
+
+        .chart-container { height: 260px; width: 100%; }
+
+        .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.72rem; white-space: nowrap; }
+        .bg-success { background: #c6f6d5; color: #22543d; }
+        .bg-warning { background: #feebc8; color: #744210; }
+        .bg-danger { background: #fed7d7; color: #822727; }
+
+        .view { display: none; }
+        .view.active { display: block; }
+
+        .filter-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 15px; }
+        .filter-row .form-group { flex: 1; min-width: 150px; margin-bottom: 0; }
+        .filter-row .btn { height: 42px; white-space: nowrap; }
+        .filter-row .btn:disabled { opacity: 0.45; }
+
+        .summary-line { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px; }
+        .empty-state { text-align: center; padding: 25px; color: var(--text-muted); font-size: 0.85rem; }
+
+        /* Tarjetas de historial por cortador */
+        .eval-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fff; }
+        .eval-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; flex-wrap: wrap; }
+        .eval-card-sub { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 6px; }
+        .eval-card-novedades { font-size: 0.82rem; }
+        .eval-card-novedades.ok { color: #22543d; }
+        .eval-card-novedades.bad { color: #822727; }
+        .eval-card-obs { font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; font-style: italic; }
+
+        @media (max-width: 640px) {
+            .container { width: 100%; padding: 0 10px; margin: 10px auto; }
+            .nav-item { padding: 10px 4px; font-size: 0.7rem; }
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+            .card { padding: 14px; }
+            .form-row { grid-template-columns: 1fr; }
+            .form-actions { flex-direction: column; }
+            .form-actions .btn { width: 100%; }
+            .filter-row .btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="brand">
+        <h1>Flores El Trigal - GHT</h1>
+        <span>Aseguramiento Solución de Hidratación en Campo</span>
+        <small style="display: block; font-size: 0.68rem; opacity: 0.75; margin-top: 1px;">Corte de flor en campo</small>
+    </div>
+    <div style="text-align: right;">
+        <div id="headerDate" style="font-weight: 400; font-size: 0.85rem; opacity: 0.8;">-</div>
+        <div id="headerWeek" style="color: var(--accent); font-weight: 700;">SEMANA: --</div>
+        <div style="margin-top: 4px; font-size: 0.75rem; opacity: 0.85;">
+            <i class="fas fa-user"></i> <span id="current-user-name">-</span>
+            <i class="fas fa-sign-out-alt" id="btn-logout" style="margin-left: 10px; cursor: pointer;" title="Cerrar sesión"></i>
+        </div>
+    </div>
+</header>
+
+<!-- ===================== PANTALLA DE LOGIN ===================== -->
+<div id="login-screen" style="display: flex; align-items: center; justify-content: center; min-height: 75vh; padding: 20px;">
+    <div class="card" style="max-width: 340px; width: 100%; text-align: center;">
+        <div style="width: 52px; height: 52px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 14px;">
+            <i class="fas fa-lock" style="color: var(--accent); font-size: 1.3rem;"></i>
+        </div>
+        <h2 style="border: none; margin-bottom: 4px;">Iniciar sesión</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 20px;">Ingresa con tu cuenta de monitor de calidad</p>
+        <form id="login-form" style="text-align: left;">
+            <div class="form-group">
+                <label>Correo</label>
+                <input type="email" id="login-email" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label>Contraseña</label>
+                <input type="password" id="login-password" required autocomplete="current-password">
+            </div>
+            <div id="login-error" style="display: none; color: var(--danger); font-size: 0.78rem; margin-bottom: 10px;"></div>
+            <button type="submit" class="btn btn-accent" id="btn-login-submit" style="width: 100%;">Ingresar</button>
+        </form>
+        <p style="font-size: 0.72rem; color: #a0aec0; margin-top: 16px;">La sesión queda guardada en este celular</p>
+    </div>
+</div>
+
+<div class="container" id="app-content" style="display: none;">
+
+    <div class="main-nav">
+        <div class="nav-item active" id="nav-captura" onclick="app.switchTab('captura')">Captura</div>
+        <div class="nav-item" id="nav-datos" onclick="app.switchTab('datos')">Datos</div>
+        <div class="nav-item" id="nav-historial" onclick="app.switchTab('historial')">Historial</div>
+    </div>
+
+    <!-- ===================== VISTA: CAPTURA ===================== -->
+    <div class="view active" id="view-captura">
+
+        <div class="kpi-grid">
+            <div class="kpi-card"><i class="fas fa-percentage"></i><span class="label">Cumplimiento Gral.</span><span class="value" id="kpi-avg">0%</span></div>
+            <div class="kpi-card"><i class="fas fa-clipboard-list"></i><span class="label">Total Registros</span><span class="value" id="kpi-total">0</span></div>
+            <div class="kpi-card"><i class="fas fa-users"></i><span class="label">Cortadores</span><span class="value" id="kpi-cortadores">0%</span></div>
+            <div class="kpi-card"><i class="fas fa-bitbucket"></i><span class="label">Canecas/S.Madre</span><span class="value" id="kpi-canecas">0%</span></div>
+        </div>
+
+        <div class="card">
+            <h2><i class="fas fa-pen-nib"></i> Formulario de Aseguramiento</h2>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tipo de Registro</label>
+                    <select id="reg-mode" onchange="app.setMode(this.value)">
+                        <option value="Cortador">Cortador de Campo</option>
+                        <option value="Caneca">Caneca / Solución Madre</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Producto</label>
+                    <select id="reg-product">
+                        <option>Pompon</option><option>Micropompon</option><option>Solidago</option>
+                        <option>Snapdragon</option><option>Trachelium</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Asegurador</label>
+                    <div id="reg-insurer-display" style="padding: 10px; background: #edf2f7; border-radius: 6px; font-weight: 700; color: var(--primary); font-size: 0.9rem;">-</div>
+                </div>
+                <div class="form-group" id="sujeto-box" style="position: relative;">
+                    <label>Cortador</label>
+                    <input type="text" id="reg-subject" placeholder="Escribe para buscar..." autocomplete="off" oninput="app.filterCutterSuggestions()" onfocus="app.filterCutterSuggestions()">
+                    <div id="cutter-suggestions" class="autocomplete-list"></div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Jornada</label>
+                    <div class="jornada-toggles" id="jornada-toggles">
+                        <div class="jornada-btn" data-value="Mañana" onclick="app.toggleJornada(this)">Mañana</div>
+                        <div class="jornada-btn" data-value="Después de desayuno" onclick="app.toggleJornada(this)">Desayuno</div>
+                        <div class="jornada-btn" data-value="Tarde" onclick="app.toggleJornada(this)">Tarde</div>
+                    </div>
+                </div>
+                <div class="form-group" id="bloque-box">
+                    <label>Bloque</label>
+                    <select id="reg-bloque"></select>
+                </div>
+            </div>
+
+            <label style="margin-top:5px;">Ítems de control (✓ conforme / ✗ no conforme)</label>
+            <div class="checklist-grid" id="checklist-body"></div>
+
+            <div class="form-group" style="margin-top: 12px;">
+                <label>Observaciones de Campo</label>
+                <textarea id="reg-obs" rows="2" placeholder="Escriba aquí los hallazgos..."></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-accent" onclick="app.saveRecord()">Cargar Información</button>
+            </div>
+        </div>
+
+        <details class="card" id="admin-panel">
+            <summary><i class="fas fa-users-cog"></i> Gestión de Personal (Cortadores)</summary>
+            <div style="margin-top: 14px;">
+                <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+                    <input type="text" id="admin-name" placeholder="Nuevo nombre de cortador...">
+                    <button class="btn btn-primary" onclick="app.addPerson()" style="padding: 10px;"><i class="fas fa-plus"></i></button>
+                </div>
+                <div id="admin-list" style="max-height: 150px; overflow-y: auto; border: 1px solid #cbd5e0; border-radius: 4px;"></div>
+            </div>
+        </details>
+    </div>
+
+    <!-- ===================== VISTA: DATOS ===================== -->
+    <div class="view" id="view-datos">
+
+        <div class="card">
+            <h2><i class="fas fa-table"></i> Registros</h2>
+            <div class="summary-line" id="datos-summary"></div>
+            <div id="datos-list"></div>
+        </div>
+
+        <details class="card" id="filtros-panel">
+            <summary><i class="fas fa-filter"></i> Filtrar Registros</summary>
+            <div style="margin-top: 14px;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tipo</label>
+                        <select id="datos-tipo" onchange="app.renderDatos()">
+                            <option value="">Todos</option>
+                            <option value="Cortador">Cortador</option>
+                            <option value="Caneca">Caneca</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Sujeto</label>
+                        <select id="datos-sujeto" onchange="app.renderDatos()">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Desde</label>
+                        <input type="date" id="datos-desde" onchange="app.renderDatos()">
+                    </div>
+                    <div class="form-group">
+                        <label>Hasta</label>
+                        <input type="date" id="datos-hasta" onchange="app.renderDatos()">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" onclick="app.limpiarFiltrosDatos()">Limpiar filtros</button>
+                </div>
+            </div>
+        </details>
+
+        <details class="card" id="config-panel">
+            <summary><i class="fas fa-calendar-check"></i> Configuración Temporal</summary>
+            <div style="margin-top: 14px;">
+                <div class="form-group">
+                    <label>Fecha de Evaluación</label>
+                    <input type="date" id="config-date" onchange="app.updateDate()">
+                </div>
+                <div id="date-info" style="font-size: 0.78rem; background: #edf2f7; padding: 10px; border-radius: 4px; color: var(--primary);"></div>
+            </div>
+        </details>
+    </div>
+
+    <!-- ===================== VISTA: HISTORIAL ===================== -->
+    <div class="view" id="view-historial">
+
+        <details class="card" id="chart-card" open>
+            <summary><i class="fas fa-chart-bar"></i> Historial por Semana</summary>
+            <div style="margin-top: 14px;">
+                <div class="form-group">
+                    <label>Comparar</label>
+                    <select id="chart-weeks-back" onchange="app.loadWeekComparison()">
+                        <option value="2">Últimas 2 semanas</option>
+                        <option value="3">Últimas 3 semanas</option>
+                        <option value="4" selected>Últimas 4 semanas</option>
+                        <option value="6">Últimas 6 semanas</option>
+                        <option value="8">Últimas 8 semanas</option>
+                        <option value="12">Últimas 12 semanas</option>
+                    </select>
+                </div>
+                <div id="chart-status" style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"></div>
+                <div class="chart-container">
+                    <canvas id="mainChart"></canvas>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 24px;">
+                    <button class="btn btn-primary btn-sm" id="btn-export-cloud" onclick="app.exportExcelCloud()">
+                        <i class="fas fa-cloud-download-alt"></i> Consolidado de registros
+                    </button>
+                    <button class="btn btn-accent btn-sm" onclick="app.exportWeekComparison()">
+                        <i class="fas fa-file-excel"></i> Comparativo semanas promedio de cortadores
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="app.exportPDF()">
+                        <i class="fas fa-file-pdf"></i> Exportar gráfico
+                    </button>
+                    <button class="btn btn-primary btn-sm" id="btn-historial-pdf-todos" onclick="app.exportAllCuttersPDF()">
+                        <i class="fas fa-file-pdf"></i> Consolidado PDF cortadores
+                    </button>
+                </div>
+            </div>
+        </details>
+
+        <details class="card" id="ranking-panel">
+            <summary><i class="fas fa-chart-line"></i> Retroalimentación por Colaborador</summary>
+            <div style="margin-top: 14px;">
+                <div class="form-group">
+                    <label>Buscar colaborador</label>
+                    <input type="text" id="ranking-search" placeholder="Escribe un nombre para filtrar..." oninput="app.renderRanking()">
+                </div>
+                <div id="ranking-status" style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;"></div>
+                <div id="ranking-list"></div>
+            </div>
+        </details>
+
+        <details class="card" id="maintenance-panel">
+            <summary><i class="fas fa-broom"></i> Mantenimiento</summary>
+            <div style="margin-top: 14px;">
+                <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0;">
+                    Borra los registros guardados en <strong>este celular</strong> (ya respaldados en Supabase).
+                    No es necesario hacerlo seguido — es solo para liberar espacio de vez en cuando.
+                </p>
+                <button class="btn btn-danger" id="btn-clear-session" onclick="app.clearLocalSession()" style="width: 100%;">
+                    Limpiar almacenamiento local de este celular
+                </button>
+            </div>
+        </details>
+    </div>
+
+</div>
+
+<script>
+// ---------- Conexión a Supabase (backend en la nube) ----------
+const SUPABASE_URL = 'https://youfqaacnalbroqpysrz.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_5ncXcNsTp-ASUc7Oy4ZV_Q_s_6gDk4t';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Fecha local en formato YYYY-MM-DD. IMPORTANTE: nunca usar new Date().toISOString()
+// para esto — esa función da la fecha en UTC, no en la hora de Colombia, y de noche
+// (después de las 7pm aprox.) puede devolver el día siguiente por error.
+function localDateStr(d = new Date()) {
+    const tzOffsetMs = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tzOffsetMs).toISOString().split('T')[0];
+}
+
+const app = {
+    mode: 'Cortador',
+    currentUser: null, // { id, display_name } — se llena al iniciar sesión
+    cutters: (function() {
+        // Si lo guardado está vacío (por ejemplo, de una prueba anterior),
+        // usa la lista sembrada en el código en vez de quedar en blanco para siempre.
+        // (un arreglo vacío [] es "verdadero" en JS, así que || no cae al valor por defecto)
+        const stored = JSON.parse(localStorage.getItem('ght_v2_cutters') || 'null');
+        return (stored && stored.length > 0) ? stored : ["AGUDELO ACEVEDO JOHANDRA", "AGUIRRE CASTILLO HASNEY JOHANA", "ALVAREZ ARIAS BEATRIZ EMILIA", "ALVAREZ ARIAS DUBAN ALFONSO", "ALVAREZ ENRIQUEZ JUAN DAVID", "ARANZAZU OROZCO GLADYS ELENA", "ARENAS TABARES ESMERALDA", "ARIAS GALLO SONIA MARLENY", "ARROYAVE HERRERA FLOR EDILIA", "AYAZO NAVARRO OSCAR DAVID", "BERRIO JULIO OMAR YESIT", "BOTERO BOTERO MARTHA GLORIA", "BRACHO SILVA RAFAEL", "BUITRAGO FRANCO NICOLAS", "CASTAÑO CASTAÑO JOHN EDISON", "CASTRILLON HERRERA OMAR ALEJANDRO", "CASTRO ARISTIZABAL ELKIN DARIO", "CEBALLOS BRAVO YULIANA", "CENTANARO DIAZ JESUS DAVID", "CERVANTE MIRANDA DIOGENES ALBERTO", "CORREA ROBLES JIMENA VALENTINA", "CRESPO DORANTES GREICELI VANESSA", "CRESPO DORANTES GREIMAR NATHALI", "CUADROS MARTINEZ KAREN VANESSA", "DELGADO BADEL MAYERLY", "DUQUE GARCIA CARLOS MARIO", "ENRIQUEZ MONTILLA MARLENY MARIBEL", "ESCOBAR PESTANA JEAN CARLOS", "ESTRADA ARANGO CRISTIAN ADRIAN", "ESTRADA FRANCO SIRLEY FERNANDA", "FIGUEROA ROJAS YUNEXI", "FLOREZ BELTRAN MIRYAN ESTHER", "GALLEGO RIOS LEONELA", "GALLON FORONDA DIANA MILENA", "GALVAN APARICIO BRAINER MIGUEL", "GARCIA FLOREZ ELISABET", "GIRALDO GOMEZ ELKIN DARIO", "GIRALDO RAMIREZ ORLANDO DE JESUS", "GOMEZ CARDONA DIANA YURLEY", "GOMEZ LARA JORGE DAVID", "GONZALEZ BUITRAGO LEONARDO FABIO", "GONZALEZ HINCAPIE CESAR AUGUSTO", "GUEJIA DAGUA ALDIBEY", "GUZMAN DANILO ANDRES", "HERNANDEZ CORREA NELVADIS", "HERNANDEZ HERRERA ALBERTO LUIS", "HOYOS ARANGO FELIX", "IDARRAGA AGUIRRE YARLEISON", "JIMENEZ CASTRO YEGLYS YAIRIMA", "MARIN MARTINEZ SOFIA DEL SOCORRO", "MARTINEZ GIRALDO ORLANDO OBED", "MEDINA CALDERA ISRAEL JOSE", "MENDOZA FUENTES ENITH MARIA", "MOJICA IPUANA LUZ ANDREA", "MONTALVO ANICHARICO YOR JAGI", "MORALES BLANDON DANIELA", "MORALES BLANDON YULIANA", "MORELO BADEL DANY ESTHER", "MURIEL ZAPATA DIANA MARIA", "MUÑOZ OSORIO GLORIA ELSY", "OCAMPO BERRIO CRISTIAN DANILO", "OJEDA MENDOZA ANDRES MODESTO", "ORTEGA JIMENEZ JESUS DAVID", "ORTIZ ORTIZ GLORIA JIMENA", "OSORIO CASTAÑEDA VERONICA", "OSORIO CASTAÑO MARISOL", "OSPINA HENAO ANLLY LORENA", "OSPINA OSPINA LIBARDO ANTONIO", "PADILLA DE AGUSTIN NEDY LUZ", "PATIÑO ROSERO DIANA ALEJANDRA", "PEREA GARCIA AULIO", "PEREZ GONZALEZ MILEIDYS", "PEREZ LOPEZ RODRIGO ANTONIO", "PEREZ MONTIEL DIANA PATRICIA", "PEREZ ZULUAGA DANIELA", "PEÑATE PEÑA MARY LUZ", "PINEDA CORREA LEONARDO DANIEL", "PORRAS MARTINEZ YAKELIN", "QUIJADA ARCOS TONY ORLANDO", "QUINCHIA CARDONA JAVIER DARIO", "QUINTERO GIRALDO MARISOL", "QUINTERO GIRALDO TATIANA ANDREA", "RAMOS CARRASCAL JAVIER", "RAMOS MESA LUIS ALBERTO", "RODAS ESCOBAR ALEXANDER", "RODRIGUEZ HOLGUIN NEIDER SEBASTIAN", "ROJAS OCAMPO JORGE IVAN", "ROMERO CONTRERAS YENIFER", "ROQUEME MUSLACO LUIS GABRIEL", "ROSALES QUIROZ EDITH CANDELARIA", "RUIZ ACEVEDO HECTOR DE JESUS", "SALAZAR HERNANDEZ BERTHA INES", "SANCHEZ MARTINEZ BLEIDIS EDITH", "SEQUERA GUEVARA ROXANA HEIDI", "SILVA GONZALEZ CARLOS MARIO", "SOTELO NARVAEZ LIBIA MERCEDES", "SUAZA FLOREZ JUAN PABLO", "SUAZA FLOREZ SIMON", "TIRADO MONTIEL FRAN STUARD", "TUIRAN NAVARRO DANIELA", "USUGA GUZMAN YUBER", "VALENCIA GOMEZ CARLOS ANDRES", "VALENCIA GOMEZ LILIANA PATRICIA", "VALENCIA QUINTERO EFRAIN ANTONIO", "VASQUEZ SANCHEZ RONALDI", "VERA CASTAÑEDA CARLOS ARTURO", "VICHE RUIZ LINEY ROCIO", "VILLA CARRILLO DANILO JOSE", "VILLAMIZAR VERGARA VALENTINA", "VILLAREAL ESPITIA JORGE ANDRES", "ZAPATA ATEHORTUA EDGAR ALONSO"];
+    })(),
+    records: JSON.parse(localStorage.getItem('ght_v2_records')) || [],
+    items: {
+        'Cortador': ["Balde conforme", "Presencia de cloro", "Limpieza solución", "Balde limpio y sin lama", "Nivel solución (5-10cm)", "Hay exceso de ramos por balde", "Tiempo de espera de la flor en campo", "Limpieza desayuno", "Limpieza tarde", "Hay cloro"],
+        'Caneca': ["S. Madre conforme", "Presencia de cloro", "Limpieza solución", "Aforado con tapa", "Dosificación", "Uso de EPPs", "Orden y aseo"]
+    },
+    // Listas anteriores a este cambio (14 y 8 ítems). Se conservan solo para
+    // poder mostrar correctamente en los reportes los registros ya guardados
+    // ANTES de quitar ítems — si no, un registro viejo con 14 respuestas se
+    // leería mal contra la lista nueva de 10 y todo saldría corrido.
+    itemsLegacy: {
+        'Cortador': ["Balde conforme", "Presencia de cloro", "Limpieza solución", "Balde limpio y sin lama", "Nivel solución (5-10cm)", "Hay exceso de ramos por balde", "Tiempo de espera de la flor en campo", "Cumple con el cronograma de lavado", "Limpieza desayuno", "Limpieza tarde", "Hay caneca de campo", "Hay cloro", "Hay agua", "Solución < 10cm"],
+        'Caneca': ["S. Madre conforme", "Presencia de cloro", "Limpieza solución", "Recipiente sucio", "Aforado con tapa", "Dosificación", "Uso de EPPs", "Orden y aseo"]
+    },
+
+    getItemNames(type, checklistLength) {
+        const current = this.items[type] || [];
+        if (checklistLength === current.length) return current;
+        const legacy = this.itemsLegacy[type] || [];
+        if (checklistLength === legacy.length) return legacy;
+        return current;
+    },
+    currentEval: {},
+    currentTab: 'captura',
+
+    init() {
+        // Registros creados antes de existir el login no tienen insurer_id;
+        // se marcan como "ya resueltos" para que no se intenten subir a Supabase.
+        let touched = false;
+        this.records.forEach(r => {
+            if (r.synced === undefined) { r.synced = !r.insurer_id; touched = true; }
+            if (r.cloudId === undefined) { r.cloudId = null; touched = true; }
+        });
+        if (touched) this.persistRecords();
+
+        document.getElementById('reg-insurer-display').innerText = this.currentUser.display_name;
+        document.getElementById('current-user-name').innerText = this.currentUser.display_name;
+
+        document.getElementById('config-date').value = localDateStr();
+        this.updateDate();
+        this.setMode(this.mode);
+        this.renderSelectors();
+        this.renderBloques();
+        this.renderChecklist();
+        this.renderAdminList();
+        this.renderHistory();
+        this.updateKPIs();
+        this.initChart();
+        this.renderDatos();
+
+        // El panel de la gráfica está colapsado por defecto; Chart.js necesita
+        // un resize() cuando el <details> se abre, porque antes tenía 0px de alto.
+        // También se refresca con lo último de la nube cada vez que se abre.
+        document.getElementById('chart-card').addEventListener('toggle', (e) => {
+            if (e.target.open && this.chart) { this.chart.resize(); this.loadWeekComparison(); }
+        });
+
+        document.getElementById('ranking-panel').addEventListener('toggle', (e) => {
+            if (e.target.open) this.loadRankingData();
+        });
+    },
+
+    // ---------- Navegación entre pestañas ----------
+    switchTab(name) {
+        this.currentTab = name;
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(`view-${name}`).classList.add('active');
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(`nav-${name}`).classList.add('active');
+
+        if (name === 'datos') {
+            this.renderDatos();
+        }
+        if (name === 'historial') {
+            this.loadHistorialData();
+            this.loadRankingData();
+            if (this.chart) this.chart.resize();
+            this.loadWeekComparison();
+        }
+    },
+
+    updateDate() {
+        const val = document.getElementById('config-date').value;
+        const d = new Date(val + 'T00:00:00');
+        const start = new Date(d.setDate(d.getDate() - d.getDay()));
+        const end = new Date(d.setDate(d.getDate() + 6));
+
+        const target = new Date(d.valueOf());
+        const dayNr = (d.getDay() + 6) % 7;
+        target.setDate(target.getDate() - dayNr + 3);
+        const firstThursday = target.valueOf();
+        target.setMonth(0, 1);
+        if (target.getDay() !== 4) { target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7); }
+        const week = 1 + Math.ceil((firstThursday - target) / 604800000);
+
+        this.currentWeek = week;
+        document.getElementById('headerWeek').innerText = `SEMANA: ${week}`;
+        document.getElementById('headerDate').innerText = new Date(val + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        document.getElementById('date-info').innerText = `Rango Semana: ${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
+
+        // Los KPIs de arriba dependen de la fecha activa, así que se refrescan
+        // cada vez que cambia (y quedan en 0 si ese día todavía no tiene registros).
+        if (this.currentUser) this.updateKPIs();
+    },
+
+    toggleJornada(el) {
+        document.querySelectorAll('#jornada-toggles .jornada-btn').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+    },
+
+    getSelectedJornadas() {
+        return Array.from(document.querySelectorAll('#jornada-toggles .jornada-btn.active')).map(b => b.dataset.value);
+    },
+
+    setMode(m) {
+        this.mode = m;
+        document.getElementById('sujeto-box').style.display = m === 'Cortador' ? 'block' : 'none';
+        document.getElementById('bloque-box').style.display = m === 'Caneca' ? 'block' : 'none';
+        this.renderChecklist();
+    },
+
+    getSortedCutters() {
+        return [...this.cutters].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+    },
+
+    renderSelectors() {
+    },
+
+    filterCutterSuggestions() {
+        const input = document.getElementById('reg-subject');
+        const box = document.getElementById('cutter-suggestions');
+        const q = input.value.trim().toLowerCase();
+        const source = this.getSortedCutters();
+        const matches = q ? source.filter(n => n.toLowerCase().includes(q)) : source;
+        const shown = matches.slice(0, 30);
+
+        box.innerHTML = shown.length
+            ? shown.map(n => `<div class="autocomplete-item" onclick="app.pickCutter('${n.replace(/'/g, "\\'")}')">${n}</div>`).join('') +
+              (matches.length > 30 ? `<div class="autocomplete-empty">Sigue escribiendo para acotar (${matches.length} coincidencias)</div>` : '')
+            : `<div class="autocomplete-empty">Sin coincidencias — verifica el nombre o agrégalo en Gestión de Personal</div>`;
+        box.classList.add('show');
+    },
+
+    pickCutter(name) {
+        document.getElementById('reg-subject').value = name;
+        document.getElementById('cutter-suggestions').classList.remove('show');
+    },
+
+    renderBloques() {
+        document.getElementById('reg-bloque').innerHTML = Array.from({length: 84}, (_, i) => i + 1).map(n => `<option>${n}</option>`).join('');
+    },
+
+    // ---------- Checklist compacto (cuadrícula móvil) ----------
+    // Todos los ítems parten en "Conforme" por defecto; el inspector solo
+    // interactúa con los que estén mal, marcándolos como "No conforme".
+    renderChecklist() {
+        const list = this.items[this.mode];
+        this.currentEval = {};
+        list.forEach((item, i) => { this.currentEval[i] = 'C'; });
+        document.getElementById('checklist-body').innerHTML = list.map((item, i) => `
+            <div class="check-item">
+                <div class="item-label">${item}</div>
+                <div class="eval-btns">
+                    <div class="eval-btn nc" id="nc-${i}" onclick="app.toggleEval(${i})">
+                        <i class="fas fa-times"></i> No conforme
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    },
+
+    toggleEval(idx) {
+        const btn = document.getElementById(`nc-${idx}`);
+        if (this.currentEval[idx] === 'NC') {
+            this.currentEval[idx] = 'C';
+            btn.classList.remove('active');
+        } else {
+            this.currentEval[idx] = 'NC';
+            btn.classList.add('active');
+        }
+    },
+
+    saveRecord() {
+        const total = this.items[this.mode].length;
+        if(Object.keys(this.currentEval).length < total) return alert('Complete todos los ítems');
+
+        const jornadas = this.getSelectedJornadas();
+        if (!jornadas.length) { alert('Selecciona la jornada (Mañana, Desayuno o Tarde)'); return; }
+
+        let subject = 'CANECA CENTRAL';
+        if (this.mode === 'Cortador') {
+            const typed = document.getElementById('reg-subject').value.trim();
+            const match = this.cutters.find(n => n.toLowerCase() === typed.toLowerCase());
+            if (!match) {
+                alert('Ese nombre no está en la lista de cortadores. Verifica que esté bien escrito, o agrégalo primero en "Gestión de Personal".');
+                return;
+            }
+            subject = match;
+        }
+
+        const cCount = Object.values(this.currentEval).filter(v => v === 'C').length;
+        const score = ((cCount / total) * 100).toFixed(1);
+        const now = new Date();
+
+        const rec = {
+            id: Date.now(),
+            date: document.getElementById('config-date').value,
+            week: this.currentWeek,
+            time: now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true }),
+            type: this.mode,
+            subject: subject,
+            bloque: this.mode === 'Caneca' ? parseInt(document.getElementById('reg-bloque').value, 10) : null,
+            jornada: jornadas.join(', '),
+            insurer: this.currentUser.display_name,
+            insurer_id: this.currentUser.id,
+            product: document.getElementById('reg-product').value,
+            score: parseFloat(score),
+            items: {...this.currentEval},
+            obs: document.getElementById('reg-obs').value,
+            synced: false,
+            cloudId: null
+        };
+
+        this.records.push(rec);
+        this.persistRecords();
+        this.resetForm();
+        this.renderHistory();
+        this.updateKPIs();
+        this.loadWeekComparison();
+        this.renderDatos();
+        alert('Información cargada correctamente');
+        this.syncRecord(rec); // intenta subirlo a Supabase de inmediato; si falla, queda pendiente
+    },
+
+    persistRecords() {
+        localStorage.setItem('ght_v2_records', JSON.stringify(this.records));
+    },
+
+    // ---------- Sincronización con Supabase (patrón "outbox") ----------
+    async syncRecord(rec) {
+        if (!rec.insurer_id || rec.synced) return; // registros viejos sin cuenta asociada no se sincronizan
+        try {
+            const { data, error } = await supabaseClient.from('records').insert({
+                insurer_id: rec.insurer_id,
+                insurer_name: rec.insurer,
+                record_date: rec.date,
+                record_time: rec.time,
+                week: rec.week,
+                type: rec.type,
+                subject: rec.subject,
+                product: rec.product,
+                bloque: rec.bloque,
+                jornada: rec.jornada,
+                score: rec.score,
+                obs: rec.obs,
+                checklist: rec.items
+            }).select('id').single();
+            if (error) throw error;
+            rec.synced = true;
+            rec.cloudId = data.id;
+            this.persistRecords();
+            this.renderDatos();
+        } catch (e) {
+            console.warn('No se pudo sincronizar el registro (queda pendiente):', e.message || e);
+        }
+    },
+
+    async syncPending() {
+        const pending = this.records.filter(r => r.insurer_id && !r.synced);
+        for (const rec of pending) { await this.syncRecord(rec); }
+    },
+
+    resetForm() {
+        this.renderChecklist();
+        document.getElementById('reg-obs').value = '';
+        document.getElementById('reg-subject').value = '';
+    },
+
+    // ---------- Limpiar sesión: borra lo acumulado en ESTE celular ----------
+    // No borra nada de Supabase — el historial en la nube se conserva día a
+    // día. Antes de borrar, intenta subir cualquier registro pendiente para
+    // no perder datos que aún no hayan llegado a la nube.
+    async clearLocalSession() {
+        const btn = document.getElementById('btn-clear-session');
+        if (btn) { btn.disabled = true; btn.innerText = 'Sincronizando...'; }
+
+        await this.syncPending();
+
+        const pending = this.records.filter(r => r.insurer_id && !r.synced);
+        if (btn) { btn.disabled = false; btn.innerText = 'Limpiar sesión'; }
+
+        if (pending.length > 0) {
+            alert(`No se puede limpiar todavía: hay ${pending.length} registro(s) sin subir a la nube (sin señal). Conéctate a internet e intenta de nuevo.`);
+            return;
+        }
+
+        if (!confirm('Esto borra los registros guardados en este celular (ya están respaldados en la nube). ¿Continuar?')) return;
+
+        this.records = [];
+        this.persistRecords();
+        this.resetForm();
+        this.renderHistory();
+        this.updateKPIs();
+        this.loadWeekComparison();
+        this.renderDatos();
+        alert('Listo. Este celular quedó limpio para empezar el día.');
+    },
+
+    // Nota: los KPIs de arriba (Captura) ya se resuelven solos mostrando 0 en
+    // cada día nuevo, porque updateKPIs() filtra por la fecha activa — no hace
+    // falta borrar ningún registro para lograrlo. Los registros siempre quedan
+    // disponibles con filtro de fechas en Datos e Historial.
+
+    showToast(msg) {
+        let t = document.getElementById('app-toast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = 'app-toast';
+            t.className = 'toast';
+            document.body.appendChild(t);
+        }
+        t.innerText = msg;
+        t.classList.add('show');
+        clearTimeout(this._toastTimer);
+        this._toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
+    },
+
+    renderHistory() {
+        // Ya no se muestra en Captura (se removió "Registros Recientes" de ahí);
+        // se deja como no-op para no tener que tocar todos los sitios que la llaman.
+    },
+
+    async deleteRecord(id) {
+        if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
+        const rec = this.records.find(r => r.id === id);
+        if (rec && rec.cloudId) {
+            try { await supabaseClient.from('records').delete().eq('id', rec.cloudId); }
+            catch (e) { console.warn('No se pudo borrar en la nube (se borra solo localmente):', e.message || e); }
+        }
+        this.records = this.records.filter(r => r.id !== id);
+        this.persistRecords();
+        this.renderHistory();
+        this.updateKPIs();
+        this.loadWeekComparison();
+        this.renderDatos();
+    },
+
+    updateKPIs() {
+        // Los KPIs de arriba reflejan SOLO la fecha activa (Configuración Temporal),
+        // no todo el historial acumulado — así se ven en 0 apenas empieza un día
+        // nuevo, sin necesidad de borrar ningún registro.
+        const activeDate = document.getElementById('config-date').value;
+        const todays = this.records.filter(r => r.date === activeDate);
+        const total = todays.length;
+        document.getElementById('kpi-total').innerText = total;
+        document.getElementById('kpi-avg').innerText = '0%';
+        document.getElementById('kpi-cortadores').innerText = '0%';
+        document.getElementById('kpi-canecas').innerText = '0%';
+        if(total === 0) return;
+
+        const avg = (todays.reduce((a,b) => a + b.score, 0) / total).toFixed(1);
+        document.getElementById('kpi-avg').innerText = avg + '%';
+
+        const corts = todays.filter(r => r.type === 'Cortador');
+        if(corts.length > 0) {
+            const cAvg = (corts.reduce((a,b) => a + b.score, 0) / corts.length).toFixed(1);
+            document.getElementById('kpi-cortadores').innerText = cAvg + '%';
+        }
+
+        const cans = todays.filter(r => r.type === 'Caneca');
+        if(cans.length > 0) {
+            const nAvg = (cans.reduce((a,b) => a + b.score, 0) / cans.length).toFixed(1);
+            document.getElementById('kpi-canecas').innerText = nAvg + '%';
+        }
+    },
+
+    addPerson() {
+        const name = document.getElementById('admin-name').value.trim();
+        if(!name) return;
+        if (this.cutters.some(n => n.toLowerCase() === name.toLowerCase())) {
+            alert('Ese nombre ya está en la lista.');
+            return;
+        }
+        this.cutters.push(name);
+        localStorage.setItem('ght_v2_cutters', JSON.stringify(this.cutters));
+        document.getElementById('admin-name').value = '';
+        this.renderAdminList();
+        this.renderSelectors();
+    },
+
+    renderAdminList() {
+        const sorted = this.getSortedCutters();
+        document.getElementById('admin-list').innerHTML = sorted.length ? sorted.map(n => `
+            <div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #eee; font-size:0.8rem">
+                ${n} <i class="fas fa-times" style="color:red; cursor:pointer" onclick="app.removePerson('${n.replace(/'/g, "\\'")}')"></i>
+            </div>
+        `).join('') : `<div class="empty-state">Sin registros</div>`;
+    },
+
+    removePerson(name) {
+        if (!confirm(`¿Quitar a "${name}" de la lista de cortadores?`)) return;
+        this.cutters = this.cutters.filter(n => n !== name);
+        localStorage.setItem('ght_v2_cutters', JSON.stringify(this.cutters));
+        this.renderAdminList();
+        this.renderSelectors();
+    },
+
+    // ---------- Gráfico (barras) ----------
+    initChart() {
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        this.chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'],
+                datasets: []
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } },
+                scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
+            }
+        });
+        this.loadWeekComparison();
+    },
+
+    // ---------- Comparativo por semana (trae de Supabase: ambos monitores) ----------
+    async loadWeekComparison() {
+        const select = document.getElementById('chart-weeks-back');
+        const weeksBack = select ? parseInt(select.value, 10) : 4;
+        const statusEl = document.getElementById('chart-status');
+        if (statusEl) statusEl.innerText = 'Cargando datos de la nube...';
+
+        let cloudRows = [];
+        try {
+            const { data, error } = await supabaseClient.from('records').select('record_date, week, score');
+            if (error) throw error;
+            cloudRows = data || [];
+        } catch (e) {
+            console.warn('No se pudo traer datos de la nube para el comparativo:', e.message || e);
+        }
+
+        // Se combina con lo local que aún no se ha subido, para no dejar fuera
+        // lo recién capturado en este celular mientras espera conexión.
+        const localPending = this.records.filter(r => !r.synced).map(r => ({ record_date: r.date, week: r.week, score: r.score }));
+        const allRows = [...cloudRows, ...localPending];
+
+        if (!this.chart) return;
+
+        if (!allRows.length) {
+            if (statusEl) statusEl.innerText = 'Todavía no hay registros guardados.';
+            this.chart.data.datasets = [];
+            this.chart.update();
+            this._lastComparison = null;
+            return;
+        }
+
+        const distinctWeeks = [...new Set(allRows.map(r => r.week))].filter(w => w !== null && w !== undefined).sort((a, b) => b - a);
+        const weeksToShow = distinctWeeks.slice(0, weeksBack).sort((a, b) => a - b); // de más antigua a más reciente en la leyenda
+
+        // Semana más reciente = dorado (marca); luego azul, verde, rojo, y de ahí en
+        // adelante otros colores si se comparan más de 4 semanas.
+        const palette = ['#c19a3b', '#3182ce', '#38a169', '#e53e3e', '#805ad5', '#dd6b20', '#319795', '#718096'];
+        const orderedByRecency = [...weeksToShow].reverse(); // [más reciente, ..., más antigua]
+
+        const datasets = weeksToShow.map(wk => {
+            const recencyIdx = orderedByRecency.indexOf(wk);
+            const color = palette[recencyIdx % palette.length];
+            const weekRows = allRows.filter(r => r.week === wk);
+            const dataByDay = [1, 2, 3, 4, 5, 6, 0].map(day => {
+                const dayRecs = weekRows.filter(r => new Date(r.record_date + 'T00:00:00').getDay() === day);
+                return dayRecs.length ? Number((dayRecs.reduce((a, b) => a + b.score, 0) / dayRecs.length).toFixed(1)) : null;
+            });
+            return { label: `Semana ${wk}`, data: dataByDay, backgroundColor: color, borderRadius: 4, maxBarThickness: 30 };
+        });
+
+        this.chart.data.datasets = datasets;
+        this.chart.update();
+        this._lastComparison = { weeksToShow, datasets };
+        if (statusEl) statusEl.innerText = weeksToShow.length ? `Comparando semanas: ${weeksToShow.join(', ')}` : 'Sin semanas para mostrar.';
+    },
+
+    exportWeekComparison() {
+        if (!this._lastComparison || !this._lastComparison.datasets.length) {
+            alert('Todavía no hay datos cargados para comparar. Abre el panel "Comparativo por Semana" primero.');
+            return;
+        }
+        const days = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
+        const rows = days.map((day, i) => {
+            const row = { "Día": day };
+            this._lastComparison.datasets.forEach(ds => { row[ds.label] = ds.data[i] != null ? ds.data[i] : '-'; });
+            return row;
+        });
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Comparativo");
+        XLSX.writeFile(wb, `GHT_Comparativo_Semanas.xlsx`);
+    },
+
+    // ---------- Vista Datos ----------
+    getDatosFiltered() {
+        const tipo = document.getElementById('datos-tipo').value;
+        const sujeto = document.getElementById('datos-sujeto').value;
+        const desde = document.getElementById('datos-desde').value;
+        const hasta = document.getElementById('datos-hasta').value;
+
+        return this.records
+            .filter(r => !tipo || r.type === tipo)
+            .filter(r => !sujeto || r.subject === sujeto)
+            .filter(r => !desde || r.date >= desde)
+            .filter(r => !hasta || r.date <= hasta)
+            .slice()
+            .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+    },
+
+    renderDatos() {
+        const sujetoSelect = document.getElementById('datos-sujeto');
+        const currentVal = sujetoSelect.value;
+        const distinctSubjects = [...new Set(this.records.map(r => r.subject))].sort();
+        sujetoSelect.innerHTML = `<option value="">Todos</option>` + distinctSubjects.map(s => `<option ${s === currentVal ? 'selected' : ''}>${s}</option>`).join('');
+
+        const filtered = this.getDatosFiltered();
+        document.getElementById('datos-summary').innerText = `Mostrando ${filtered.length} de ${this.records.length} registros totales`;
+
+        document.getElementById('datos-list').innerHTML = filtered.length ? filtered.map(r => `
+            <div class="eval-card">
+                <div class="eval-card-header">
+                    <strong>${r.subject}</strong>
+                    <span class="badge ${r.score >= 90 ? 'bg-success' : (r.score >= 70 ? 'bg-warning' : 'bg-danger')}">${r.score}%</span>
+                </div>
+                <div class="eval-card-sub">${r.date}${r.time ? ' · ' + r.time : ''} · Semana ${r.week} · ${r.type}${r.jornada ? ' · ' + r.jornada : ''}</div>
+                <div class="eval-card-sub">Producto: ${r.product}${r.bloque ? ' · Bloque ' + r.bloque : ''} · Aseguró: ${r.insurer}</div>
+                ${r.obs ? `<div class="eval-card-obs">${r.obs}</div>` : ''}
+                <div style="text-align: right; margin-top: 8px;">
+                    <i class="fas fa-trash" style="color:#cbd5e0; cursor:pointer" onclick="app.deleteRecord(${r.id})"></i>
+                </div>
+            </div>
+        `).join('') : `<div class="empty-state">No hay registros que coincidan con los filtros</div>`;
+    },
+
+    limpiarFiltrosDatos() {
+        document.getElementById('datos-tipo').value = '';
+        document.getElementById('datos-sujeto').value = '';
+        document.getElementById('datos-desde').value = '';
+        document.getElementById('datos-hasta').value = '';
+        this.renderDatos();
+    },
+
+    // ---------- Historial (datos por cortador consolidados de la nube) ----------
+    // Alimenta el ranking de retroalimentación y el PDF consolidado de todos los
+    // cortadores. Se combina con lo local aún no sincronizado, para no dejar
+    // fuera lo recién capturado en este celular.
+    async loadHistorialData() {
+        let cloudRows = [];
+        try {
+            const { data, error } = await supabaseClient.from('records').select('*').eq('type', 'Cortador');
+            if (error) throw error;
+            cloudRows = (data || []).map(r => ({
+                date: r.record_date, time: r.record_time, week: r.week, type: r.type,
+                subject: r.subject, product: r.product, bloque: r.bloque, jornada: r.jornada,
+                insurer: r.insurer_name, score: r.score, obs: r.obs, items: r.checklist || {}
+            }));
+        } catch (e) {
+            console.warn('No se pudo cargar el historial desde la nube:', e.message || e);
+        }
+        const localPending = this.records.filter(r => !r.synced && r.type === 'Cortador');
+        this._historialRows = [...cloudRows, ...localPending];
+
+        const pdfAllBtn = document.getElementById('btn-historial-pdf-todos');
+        if (pdfAllBtn) pdfAllBtn.disabled = !this._historialRows.length;
+    },
+
+    getFailedItems(r) {
+        const labels = this.getItemNames(r.type, Object.keys(r.items || {}).length);
+        return Object.keys(r.items || {})
+            .filter(idx => r.items[idx] === 'NC')
+            .map(idx => labels[idx])
+            .filter(Boolean);
+    },
+
+    // ---------- Retroalimentación por Colaborador (ranking, trae de Supabase) ----------
+    async loadRankingData() {
+        const statusEl = document.getElementById('ranking-status');
+        if (statusEl) statusEl.innerText = 'Cargando datos de la nube...';
+
+        let cloudRows = [];
+        try {
+            const { data, error } = await supabaseClient.from('records').select('subject, type, score, checklist').eq('type', 'Cortador');
+            if (error) throw error;
+            cloudRows = data || [];
+        } catch (e) {
+            console.warn('No se pudo cargar el ranking de colaboradores:', e.message || e);
+        }
+
+        // Se suma lo local aún no sincronizado, para no dejar fuera lo recién capturado.
+        const localPending = this.records
+            .filter(r => !r.synced && r.type === 'Cortador')
+            .map(r => ({ subject: r.subject, type: r.type, score: r.score, checklist: r.items }));
+
+        this._rankingRows = [...cloudRows, ...localPending];
+
+        if (statusEl) {
+            statusEl.innerText = this._rankingRows.length
+                ? `${this._rankingRows.length} evaluaciones de cortadores cargadas.`
+                : 'Todavía no hay evaluaciones de cortadores guardadas.';
+        }
+        this.renderRanking();
+    },
+
+    renderRanking() {
+        const rows = this._rankingRows || [];
+        const search = (document.getElementById('ranking-search')?.value || '').trim().toLowerCase();
+
+        // Agrupa por nombre de cortador
+        const bySubject = {};
+        rows.forEach(r => {
+            if (!r.subject) return;
+            if (!bySubject[r.subject]) bySubject[r.subject] = { evals: 0, scoreSum: 0, ncCount: 0, itemFails: {} };
+            const g = bySubject[r.subject];
+            g.evals += 1;
+            g.scoreSum += (r.score || 0);
+            const checklist = r.checklist || {};
+            const names = this.getItemNames('Cortador', Object.keys(checklist).length);
+            Object.entries(checklist).forEach(([idx, val]) => {
+                if (val === 'NC') {
+                    g.ncCount += 1;
+                    const itemName = names[idx] || `Ítem ${idx}`;
+                    g.itemFails[itemName] = (g.itemFails[itemName] || 0) + 1;
+                }
+            });
+        });
+
+        let list = Object.entries(bySubject).map(([name, g]) => {
+            const avg = g.evals ? Number((g.scoreSum / g.evals).toFixed(1)) : 0;
+            let topFail = null, topFailCount = 0;
+            Object.entries(g.itemFails).forEach(([item, count]) => {
+                if (count > topFailCount) { topFail = item; topFailCount = count; }
+            });
+            return { name, evals: g.evals, avg, ncCount: g.ncCount, topFail, topFailCount };
+        });
+
+        if (search) list = list.filter(x => x.name.toLowerCase().includes(search));
+        list.sort((a, b) => a.avg - b.avg); // peor desempeño primero, para priorizar la retroalimentación
+
+        document.getElementById('ranking-list').innerHTML = list.length ? list.map(x => {
+            const color = x.avg >= 90 ? '#48bb78' : (x.avg >= 70 ? '#ecc94b' : '#f56565');
+            return `
+                <div class="eval-card">
+                    <div class="eval-card-header">
+                        <strong>${x.name}</strong>
+                        <span class="badge" style="background:${color}; color:#fff;">${x.avg}%</span>
+                    </div>
+                    <div class="eval-card-sub">${x.evals} evaluaciones · ${x.ncCount} ítems no conformes en total</div>
+                    ${x.topFail ? `<div class="eval-card-obs">Falencia más frecuente: <strong>${x.topFail}</strong> (${x.topFailCount} ${x.topFailCount === 1 ? 'vez' : 'veces'})</div>` : ''}
+                </div>
+            `;
+        }).join('') : `<div class="empty-state">${(this._rankingRows || []).length ? 'Sin coincidencias' : 'Sin datos todavía'}</div>`;
+    },
+
+    // Genera un PDF con TODOS los cortadores, separado visualmente por persona
+    // (encabezado con su nombre + resumen antes de su tabla), en flujo continuo
+    // — no se fuerza una página por persona, así que varios caben en la misma
+    // hoja. Cada tabla incluye "Observaciones" con los ítems no conformes.
+    exportAllCuttersPDF() {
+        const corts = (this._historialRows || [])
+            .filter(r => r.type === 'Cortador')
+            .slice()
+            .sort((a, b) => a.subject.localeCompare(b.subject, 'es') || a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
+
+        if (!corts.length) return alert('No hay evaluaciones de cortadores para exportar');
+
+        const names = [...new Set(corts.map(r => r.subject))].sort((a, b) => a.localeCompare(b, 'es'));
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('l', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        doc.setFillColor(26, 58, 108);
+        doc.rect(0, 0, pageWidth, 18, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(13);
+        doc.text('Flores El Trigal — Historial de todos los cortadores', 10, 12);
+
+        let y = 28;
+
+        names.forEach((name) => {
+            const recs = corts.filter(r => r.subject === name);
+            const avg = (recs.reduce((a, b) => a + b.score, 0) / recs.length).toFixed(1);
+
+            // Salto de página si no queda espacio para el encabezado + al menos una fila.
+            if (y > pageHeight - 35) { doc.addPage(); y = 16; }
+
+            doc.setFillColor(237, 242, 247);
+            doc.rect(10, y - 5.5, pageWidth - 20, 8, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(26, 58, 108);
+            doc.text(name, 12, y);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8.5);
+            doc.setTextColor(80, 80, 80);
+            doc.text(`${recs.length} evaluaciones — promedio ${avg}%`, pageWidth - 12, y, { align: 'right' });
+            y += 6;
+
+            doc.autoTable({
+                startY: y,
+                margin: { left: 10, right: 10 },
+                head: [['Fecha', 'Hora', 'Semana', 'Jornada', 'Bloque', 'Producto', '%', 'Observaciones']],
+                body: recs.map(r => {
+                    const failed = this.getFailedItems(r);
+                    return [r.date, r.time || '-', r.week || '-', r.jornada || '-', r.bloque || '-', r.product || '-', r.score + '%', failed.length ? failed.join(', ') : 'Todo conforme'];
+                }),
+                styles: { fontSize: 7.5, cellPadding: 1.6, overflow: 'linebreak' },
+                headStyles: { fillColor: [26, 58, 108], fontSize: 7.5 },
+                alternateRowStyles: { fillColor: [250, 251, 252] },
+                columnStyles: { 7: { cellWidth: 'auto' } }
+            });
+
+            y = doc.lastAutoTable.finalY + 10;
+        });
+
+        doc.save(`Historial_Todos_los_Cortadores_${localDateStr()}.pdf`);
+    },
+
+    // ---------- Exportaciones generales ----------
+    exportExcel() {
+        if(!this.records.length) return alert('Sin datos');
+        const data = this.records.map(r => {
+            const row = { "Fecha": r.date, "Hora": r.time || '-', "Semana": r.week, "Tipo": r.type, "Sujeto": r.subject, "Bloque": r.bloque || '-', "Jornada": r.jornada || '-', "Producto": r.product, "Asegurador": r.insurer, "%": r.score };
+            const names = this.getItemNames(r.type, Object.keys(r.items || {}).length);
+            names.forEach((name, i) => row[name] = (r.items && r.items[i]) || '-');
+            row["Observaciones"] = r.obs;
+            return row;
+        });
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+        XLSX.writeFile(wb, "GHT_Hidratacion.xlsx");
+    },
+
+    // ---------- Exportar TODO lo guardado en Supabase (ambos monitores) ----------
+    // Trae directamente de la nube en vez de usar this.records (que solo tiene
+    // lo capturado en este celular), y arma el mismo formato de reporte.
+    async exportExcelCloud() {
+        const btn = document.getElementById('btn-export-cloud');
+        const setBtn = (text, disabled) => { if (btn) { btn.innerHTML = text; btn.disabled = disabled; } };
+        setBtn('<i class="fas fa-spinner fa-spin"></i> Descargando de la nube...', true);
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('records')
+                .select('*')
+                .order('record_date', { ascending: true })
+                .order('record_time', { ascending: true });
+            if (error) throw error;
+            if (!data || !data.length) { alert('Todavía no hay registros guardados en la nube.'); return; }
+
+            const rows = data.map(r => {
+                const row = {
+                    "Fecha": r.record_date, "Hora": r.record_time || '-', "Semana": r.week,
+                    "Tipo": r.type, "Sujeto": r.subject, "Bloque": r.bloque || '-', "Jornada": r.jornada || '-',
+                    "Producto": r.product, "Asegurador": r.insurer_name, "%": r.score
+                };
+                const itemNames = this.getItemNames(r.type, Object.keys(r.checklist || {}).length);
+                itemNames.forEach((name, i) => { row[name] = (r.checklist && r.checklist[i]) || '-'; });
+                row["Observaciones"] = r.obs || '';
+                return row;
+            });
+
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+            XLSX.writeFile(wb, `GHT_Hidratacion_Consolidado_${localDateStr()}.xlsx`);
+        } catch (e) {
+            alert('No se pudo descargar de la nube: ' + (e.message || e));
+        } finally {
+            setBtn('<i class="fas fa-cloud-download-alt"></i> Exportar consolidado (todos los monitores)', false);
+        }
+    },
+
+    async exportPDF() {
+        if (!this._lastComparison || !this._lastComparison.datasets.length) {
+            return alert('Todavía no hay datos cargados en el gráfico. Abre "Comparativo por Semana" y espera a que cargue antes de exportar.');
+        }
+
+        // Trae el resumen por cortador consolidado de Supabase (no depende de si
+        // este celular tiene algo guardado localmente).
+        let cloudCortRows = [];
+        try {
+            const { data, error } = await supabaseClient.from('records').select('subject, score, type').eq('type', 'Cortador');
+            if (error) throw error;
+            cloudCortRows = data || [];
+        } catch (e) {
+            console.warn('No se pudo traer el resumen por cortador para el PDF:', e.message || e);
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4');
+
+        doc.setFillColor(26, 58, 108);
+        doc.rect(0, 0, 210, 30, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(20);
+        doc.text("GHT - Reporte de Hidratación", 10, 20);
+        doc.setFontSize(10);
+        doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')}`, 145, 20);
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(13);
+        doc.text('Comparativo por Semana (%)', 10, 42);
+
+        if (this.chart) this.chart.resize();
+        const imgWidth = 190;
+        const imgHeight = imgWidth * (this.chart.canvas.height / this.chart.canvas.width);
+        const chartImg = this.chart.toBase64Image('image/png', 1.0);
+        doc.addImage(chartImg, 'PNG', 10, 47, imgWidth, imgHeight);
+
+        let y = 47 + imgHeight + 12;
+        doc.setFontSize(11);
+        doc.text(`Semanas comparadas: ${this._lastComparison.weeksToShow.join(', ')}`, 10, y);
+        y += 10;
+
+        const byName = {};
+        cloudCortRows.forEach(r => {
+            if (!byName[r.subject]) byName[r.subject] = [];
+            byName[r.subject].push(r.score);
+        });
+        const summary = Object.keys(byName).sort((a, b) => a.localeCompare(b, 'es')).map(name => {
+            const scores = byName[name];
+            return { name, count: scores.length, avg: (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) };
+        });
+
+        if (summary.length && doc.autoTable) {
+            doc.setFontSize(12);
+            doc.text('Resumen por Cortador (consolidado, todos los monitores)', 10, y);
+            doc.autoTable({
+                startY: y + 4,
+                head: [['Cortador', 'Registros', '% Promedio']],
+                body: summary.map(s => [s.name, s.count, s.avg + '%']),
+                headStyles: { fillColor: [26, 58, 108], textColor: 255, fontSize: 9 },
+                styles: { fontSize: 9 }
+            });
+        }
+
+        doc.save("Reporte_GHT.pdf");
+    }
+};
+
+// ---------- Autenticación (Supabase Auth) ----------
+async function showApp(profile) {
+    app.currentUser = profile;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-content').style.display = 'block';
+    app.init();
+    await app.syncPending();
+    app.updateKPIs(); // por si algún pendiente recién sincronizado cambia el resumen del día
+}
+
+async function loadProfileAndShow(userId) {
+    const { data, error } = await supabaseClient.from('profiles').select('id, display_name').eq('id', userId).single();
+    if (error || !data) {
+        console.warn('No se pudo cargar el perfil:', error && error.message);
+        await supabaseClient.auth.signOut();
+        document.getElementById('login-error').innerText = 'No se encontró tu perfil. Contacta al administrador.';
+        document.getElementById('login-error').style.display = 'block';
+        document.getElementById('login-screen').style.display = 'flex';
+        return;
+    }
+    showApp(data);
+}
+
+async function checkSession() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) { await loadProfileAndShow(session.user.id); }
+    else { document.getElementById('login-screen').style.display = 'flex'; }
+}
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errEl = document.getElementById('login-error');
+    const btn = document.getElementById('btn-login-submit');
+    errEl.style.display = 'none';
+    btn.disabled = true; btn.innerText = 'Ingresando...';
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+    btn.disabled = false; btn.innerText = 'Ingresar';
+    if (error) {
+        errEl.innerText = 'Correo o contraseña incorrectos.';
+        errEl.style.display = 'block';
+        return;
+    }
+    await loadProfileAndShow(data.user.id);
+});
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+    if (!confirm('¿Cerrar sesión?')) return;
+    await supabaseClient.auth.signOut();
+    location.reload();
+});
+
+window.addEventListener('online', () => { if (app.currentUser) app.syncPending(); });
+
+// Cierra el listado de sugerencias de "Cortador" (en Captura) al tocar fuera de él.
+document.addEventListener('click', (e) => {
+    const box = document.getElementById('cutter-suggestions');
+    const wrapper = document.getElementById('sujeto-box');
+    if (box && wrapper && !wrapper.contains(e.target)) box.classList.remove('show');
+});
+
+checkSession();
+
+// ---------- Registro del Service Worker (soporte offline) ----------
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW no registrado:', err));
+    });
+}
+</script>
+</body>
+</html>
