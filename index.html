@@ -415,6 +415,14 @@
                 <div id="caneca-summary" style="font-size: 0.78rem; background: #edf2f7; border-radius: 6px; padding: 10px 12px; margin-top: 10px; color: var(--primary);"></div>
                 <div id="worst-performer" style="font-size: 0.78rem; background: #fff5f5; border: 1px solid #fed7d7; border-radius: 6px; padding: 10px 12px; margin-top: 8px; color: #822727;"></div>
 
+                <div class="form-group" style="margin-top: 16px;">
+                    <label>Semana del reporte PDF por producto</label>
+                    <select id="pdf-week-select">
+                        <option value="last">Semana pasada (automática)</option>
+                        <option value="">Todas las semanas (histórico completo)</option>
+                    </select>
+                </div>
+
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 24px;">
                     <button class="btn btn-primary btn-sm" id="btn-export-cloud" onclick="app.exportExcelCloud()">
                         <i class="fas fa-cloud-download-alt"></i> Consolidado de registros
@@ -959,6 +967,10 @@ const app = {
         const localPending = this.records.filter(r => !r.synced).map(r => ({ record_date: r.date, week: r.week, score: r.score, type: r.type, subject: r.subject, product: r.product }));
         let allRows = [...cloudRows, ...localPending];
 
+        // Llena el selector de "Semana del reporte PDF" con las semanas que
+        // realmente tienen registros de Cortador, sin filtrar por producto.
+        this.populateWeekFilterOptions(allRows.filter(r => r.type === 'Cortador'));
+
         // Filtro por producto (si se eligió uno específico en el dashboard).
         if (productName) allRows = allRows.filter(r => r.product === productName);
 
@@ -1165,6 +1177,65 @@ const app = {
             end: localDateStr(lastSunday),
             week: isoWeekNumber(lastMonday),
             year: lastMonday.getFullYear()
+        };
+    },
+
+    // Llena el selector "Semana del reporte PDF por producto" con las semanas
+    // (Lunes–Domingo) que realmente tienen registros, de más reciente a más
+    // antigua, además de las opciones fijas "Semana pasada" y "Todas".
+    populateWeekFilterOptions(rows) {
+        const sel = document.getElementById('pdf-week-select');
+        if (!sel) return;
+
+        const isoMonday = (d) => {
+            const day = (d.getDay() + 6) % 7; // Lunes=0 ... Domingo=6
+            const m = new Date(d);
+            m.setDate(d.getDate() - day);
+            m.setHours(0, 0, 0, 0);
+            return m;
+        };
+
+        const byKey = {};
+        rows.forEach(r => {
+            if (r.week === null || r.week === undefined || !r.record_date) return;
+            const monday = isoMonday(new Date(r.record_date + 'T00:00:00'));
+            const key = `${monday.getFullYear()}-W${r.week}`;
+            if (!byKey[key]) {
+                const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+                byKey[key] = { week: r.week, year: monday.getFullYear(), start: localDateStr(monday), end: localDateStr(sunday) };
+            }
+        });
+        this._weekFilterRanges = byKey;
+
+        const sortedKeys = Object.keys(byKey).sort((a, b) => byKey[b].start.localeCompare(byKey[a].start));
+        const currentVal = sel.value || 'last';
+        sel.innerHTML =
+            `<option value="last">Semana pasada (automática)</option>` +
+            `<option value="">Todas las semanas (histórico completo)</option>` +
+            sortedKeys.map(k => `<option value="${k}">Semana ${byKey[k].week} de ${byKey[k].year} (${byKey[k].start} a ${byKey[k].end})</option>`).join('');
+        if ([...sel.options].some(o => o.value === currentVal)) sel.value = currentVal;
+    },
+
+    // Traduce la opción elegida en "Semana del reporte PDF por producto" a un
+    // rango concreto: una semana específica, la última semana ISO completa
+    // (por defecto), o "todo" (sin filtrar por fecha).
+    getReportWeekRange() {
+        const val = document.getElementById('pdf-week-select')?.value ?? 'last';
+
+        if (val === '') {
+            return { mode: 'all', label: 'Todo el histórico', shortLabel: 'Histórico' };
+        }
+        if (val !== 'last' && this._weekFilterRanges && this._weekFilterRanges[val]) {
+            const r = this._weekFilterRanges[val];
+            return {
+                mode: 'week', week: r.week, year: r.year, start: r.start, end: r.end,
+                label: `Semana ${r.week} de ${r.year} (${r.start} a ${r.end})`, shortLabel: `Sem ${r.week}`
+            };
+        }
+        const r = this.getLastCompleteWeekRange();
+        return {
+            mode: 'week', week: r.week, year: r.year, start: r.start, end: r.end,
+            label: `Semana ${r.week} de ${r.year} (${r.start} a ${r.end})`, shortLabel: `Sem ${r.week}`
         };
     },
 
@@ -1603,28 +1674,36 @@ const app = {
         let pageStarted = false;
         const startPage = () => { if (pageStarted) doc.addPage(); pageStarted = true; };
 
-        // Última semana ISO completa: se usa más abajo para las secciones 3 y 4
-        // de cada página de producto (cumplimiento por cortador y Pareto de
-        // causas de esa semana, ambos específicos del producto).
-        const weekInfo = this.getLastCompleteWeekRange();
-        const cloudWeekCort = allRows
-            .filter(r => r.type === 'Cortador' && r.record_date >= weekInfo.start && r.record_date <= weekInfo.end)
-            .map(r => ({ subject: r.subject, product: r.product, score: r.score, items: r.checklist || {} }));
-        const localWeekCort = this.records
-            .filter(r => !r.synced && r.type === 'Cortador' && r.date >= weekInfo.start && r.date <= weekInfo.end)
-            .map(r => ({ subject: r.subject, product: r.product, score: r.score, items: r.items }));
+        // Rango elegido en "Semana del reporte PDF por producto": una semana
+        // específica, la última semana ISO completa (por defecto), o "todo el
+        // histórico" (sin filtrar por fecha). Se usa más abajo para las
+        // secciones 3 y 4 de cada página de producto y para el Pareto general.
+        const weekRange = this.getReportWeekRange();
+        let cloudWeekCort, localWeekCort;
+        if (weekRange.mode === 'all') {
+            cloudWeekCort = allRows.filter(r => r.type === 'Cortador')
+                .map(r => ({ subject: r.subject, product: r.product, score: r.score, items: r.checklist || {} }));
+            localWeekCort = this.records.filter(r => !r.synced && r.type === 'Cortador')
+                .map(r => ({ subject: r.subject, product: r.product, score: r.score, items: r.items }));
+        } else {
+            cloudWeekCort = allRows
+                .filter(r => r.type === 'Cortador' && r.record_date >= weekRange.start && r.record_date <= weekRange.end)
+                .map(r => ({ subject: r.subject, product: r.product, score: r.score, items: r.checklist || {} }));
+            localWeekCort = this.records
+                .filter(r => !r.synced && r.type === 'Cortador' && r.date >= weekRange.start && r.date <= weekRange.end)
+                .map(r => ({ subject: r.subject, product: r.product, score: r.score, items: r.items }));
+        }
         const weekCortRows = [...cloudWeekCort, ...localWeekCort];
 
-        // Pareto de causas general (todos los productos) de la semana pasada,
+        // Pareto de causas general (todos los productos) del rango elegido,
         // como página inicial del reporte — antes de entrar al detalle por
         // producto. El gráfico de cumplimiento general (sin desglosar por
         // producto) ya no se incluye, por pedido explícito. Esta página SIEMPRE
-        // se dibuja (aunque no haya ítems no conformes esa semana), para que el
-        // reporte no la omita en silencio.
+        // se dibuja (aunque no haya ítems no conformes), para que el reporte no
+        // la omita en silencio.
         const generalPareto = this.buildParetoCauses(weekCortRows);
         {
-            const weekLabel = `Semana ${weekInfo.week} de ${weekInfo.year} (${weekInfo.start} a ${weekInfo.end})`;
-            const paretoTitle = `Pareto de Causas — Ítems No Conformes — Sem ${weekInfo.week}`;
+            const paretoTitle = `Pareto de Causas — Ítems No Conformes — ${weekRange.shortLabel}`;
             startPage();
             doc.setFillColor(26, 58, 108);
             doc.rect(0, 0, 210, 26, 'F');
@@ -1632,7 +1711,7 @@ const app = {
             doc.setFontSize(13);
             doc.text(paretoTitle, 10, 13);
             doc.setFontSize(9);
-            doc.text(weekLabel, 10, 21);
+            doc.text(weekRange.label, 10, 21);
 
             if (generalPareto.length) {
                 const paretoHeight = 620;
@@ -1643,8 +1722,8 @@ const app = {
                 doc.setTextColor(120, 120, 120);
                 doc.text(
                     weekCortRows.length
-                        ? 'Sin ítems no conformes registrados en Cortadores esta semana.'
-                        : 'Sin registros de Cortadores para la semana pasada.',
+                        ? 'Sin ítems no conformes registrados en Cortadores en este rango.'
+                        : 'Sin registros de Cortadores en este rango.',
                     10, 40
                 );
             }
@@ -1702,7 +1781,7 @@ const app = {
                 y += 14;
             }
 
-            // 3. Cumplimiento por cortador de este producto — última semana (Sem X).
+            // 3. Cumplimiento por cortador de este producto, en el rango elegido.
             const productWeekRows = weekCortRows.filter(r => r.product === product);
             if (productWeekRows.length) {
                 const productWeekData = this.buildCutterAvg(productWeekRows);
@@ -1712,16 +1791,16 @@ const app = {
 
                 doc.setFontSize(12);
                 doc.setTextColor(0, 0, 0);
-                doc.text(`3. Cumplimiento Cortadores ${code} — Semana pasada (Sem ${weekInfo.week})`, 10, y);
+                doc.text(`3. Cumplimiento Cortadores ${code} — ${weekRange.label}`, 10, y);
                 y += 4;
 
-                const chartTitle = `Cumplimiento Cortadores ${code} — Sem ${weekInfo.week}`;
+                const chartTitle = `Cumplimiento Cortadores ${code} — ${weekRange.shortLabel}`;
                 const img3 = this.buildCutterBarImage(chartTitle, productWeekData, 900, chartHeight);
                 doc.addImage(img3, 'PNG', 10, y, imgWidth, chartImgHeight);
                 y += chartImgHeight + 10;
             }
 
-            // 4. Pareto de causas (ítems no conformes) de este producto — última semana.
+            // 4. Pareto de causas (ítems no conformes) de este producto, en el rango elegido.
             const productPareto = this.buildParetoCauses(productWeekRows);
             if (productPareto.length) {
                 const paretoHeight = Math.max(350, 90 + productPareto.length * 14);
@@ -1730,16 +1809,17 @@ const app = {
 
                 doc.setFontSize(12);
                 doc.setTextColor(0, 0, 0);
-                doc.text(`4. Pareto de Causas ${code} — Semana pasada (Sem ${weekInfo.week})`, 10, y);
+                doc.text(`4. Pareto de Causas ${code} — ${weekRange.label}`, 10, y);
                 y += 4;
 
-                const paretoTitle = `Pareto de Causas ${code} — Sem ${weekInfo.week}`;
+                const paretoTitle = `Pareto de Causas ${code} — ${weekRange.shortLabel}`;
                 const imgPareto = this.buildParetoImage(paretoTitle, productPareto, 900, paretoHeight);
                 doc.addImage(imgPareto, 'PNG', 10, y, imgWidth, paretoImgHeight);
             }
         });
 
-        doc.save(`Reporte_GHT_por_Producto_${localDateStr()}.pdf`);
+        const fileTag = weekRange.mode === 'all' ? 'Historico' : `Sem${weekRange.week}_${weekRange.year}`;
+        doc.save(`Reporte_GHT_por_Producto_${fileTag}_${localDateStr()}.pdf`);
     }
 };
 
