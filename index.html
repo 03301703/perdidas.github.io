@@ -1602,6 +1602,28 @@ const app = {
             .map(r => ({ subject: r.subject, product: r.product, score: r.score, items: r.items }));
         const weekCortRows = [...cloudWeekCort, ...localWeekCort];
 
+        // Pareto de causas general (todos los productos) de la semana pasada,
+        // como página inicial del reporte — antes de entrar al detalle por
+        // producto. El gráfico de cumplimiento general (sin desglosar por
+        // producto) ya no se incluye, por pedido explícito.
+        const generalPareto = this.buildParetoCauses(weekCortRows);
+        if (generalPareto.length) {
+            const weekLabel = `Semana ${weekInfo.week} de ${weekInfo.year} (${weekInfo.start} a ${weekInfo.end})`;
+            const paretoTitle = `Pareto de Causas — Ítems No Conformes — Sem ${weekInfo.week}`;
+            startPage();
+            doc.setFillColor(26, 58, 108);
+            doc.rect(0, 0, 210, 26, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(13);
+            doc.text(paretoTitle, 10, 13);
+            doc.setFontSize(9);
+            doc.text(weekLabel, 10, 21);
+
+            const paretoHeight = 620;
+            const paretoImg = this.buildParetoImage(paretoTitle, generalPareto, 900, paretoHeight);
+            doc.addImage(paretoImg, 'PNG', 10, 32, imgWidth, imgWidth * (paretoHeight / 900));
+        }
+
         products.forEach((product) => {
             startPage();
             const code = PRODUCT_CODES[product] || product;
