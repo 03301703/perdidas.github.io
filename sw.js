@@ -3,7 +3,7 @@
 // funcione en campo con conectividad intermitente o nula. Los datos capturados
 // se guardan en localStorage (ya funcionan offline por naturaleza).
 
-const CACHE_NAME = 'ght-trigal-v35';
+const CACHE_NAME = 'ght-trigal-v36';
 
 const APP_SHELL = [
   './',

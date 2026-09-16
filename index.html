@@ -1605,9 +1605,11 @@ const app = {
         // Pareto de causas general (todos los productos) de la semana pasada,
         // como página inicial del reporte — antes de entrar al detalle por
         // producto. El gráfico de cumplimiento general (sin desglosar por
-        // producto) ya no se incluye, por pedido explícito.
+        // producto) ya no se incluye, por pedido explícito. Esta página SIEMPRE
+        // se dibuja (aunque no haya ítems no conformes esa semana), para que el
+        // reporte no la omita en silencio.
         const generalPareto = this.buildParetoCauses(weekCortRows);
-        if (generalPareto.length) {
+        {
             const weekLabel = `Semana ${weekInfo.week} de ${weekInfo.year} (${weekInfo.start} a ${weekInfo.end})`;
             const paretoTitle = `Pareto de Causas — Ítems No Conformes — Sem ${weekInfo.week}`;
             startPage();
@@ -1619,9 +1621,20 @@ const app = {
             doc.setFontSize(9);
             doc.text(weekLabel, 10, 21);
 
-            const paretoHeight = 620;
-            const paretoImg = this.buildParetoImage(paretoTitle, generalPareto, 900, paretoHeight);
-            doc.addImage(paretoImg, 'PNG', 10, 32, imgWidth, imgWidth * (paretoHeight / 900));
+            if (generalPareto.length) {
+                const paretoHeight = 620;
+                const paretoImg = this.buildParetoImage(paretoTitle, generalPareto, 900, paretoHeight);
+                doc.addImage(paretoImg, 'PNG', 10, 32, imgWidth, imgWidth * (paretoHeight / 900));
+            } else {
+                doc.setFontSize(10);
+                doc.setTextColor(120, 120, 120);
+                doc.text(
+                    weekCortRows.length
+                        ? 'Sin ítems no conformes registrados en Cortadores esta semana.'
+                        : 'Sin registros de Cortadores para la semana pasada.',
+                    10, 40
+                );
+            }
         }
 
         products.forEach((product) => {
