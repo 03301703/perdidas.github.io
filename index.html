@@ -1129,6 +1129,71 @@ const app = {
             .filter(Boolean);
     },
 
+    // Calcula el rango Lunes–Domingo de la semana ISO completa más reciente (la
+    // que ya pasó), tomando como referencia la fecha real de hoy. El número de
+    // semana usa la misma fórmula ISO 8601 que updateDate(), para que coincida
+    // con lo que el usuario ve en el encabezado de la app.
+    getLastCompleteWeekRange() {
+        const isoMonday = (d) => {
+            const day = (d.getDay() + 6) % 7; // Lunes=0 ... Domingo=6
+            const m = new Date(d);
+            m.setDate(d.getDate() - day);
+            m.setHours(0, 0, 0, 0);
+            return m;
+        };
+        const isoWeekNumber = (d) => {
+            const target = new Date(d.valueOf());
+            const dayNr = (d.getDay() + 6) % 7;
+            target.setDate(target.getDate() - dayNr + 3);
+            const firstThursday = target.valueOf();
+            target.setMonth(0, 1);
+            if (target.getDay() !== 4) target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+            return 1 + Math.ceil((firstThursday - target) / 604800000);
+        };
+        const thisMonday = isoMonday(new Date());
+        const lastMonday = new Date(thisMonday); lastMonday.setDate(thisMonday.getDate() - 7);
+        const lastSunday = new Date(lastMonday); lastSunday.setDate(lastMonday.getDate() + 6);
+        return {
+            start: localDateStr(lastMonday),
+            end: localDateStr(lastSunday),
+            week: isoWeekNumber(lastMonday),
+            year: lastMonday.getFullYear()
+        };
+    },
+
+    // Agrupa registros por cortador y calcula su % promedio, ordenado de peor a
+    // mejor desempeño (para priorizar a quién dar retroalimentación primero).
+    buildCutterAvg(rows) {
+        const bySubject = {};
+        rows.forEach(r => {
+            if (!bySubject[r.subject]) bySubject[r.subject] = { sum: 0, count: 0 };
+            bySubject[r.subject].sum += r.score;
+            bySubject[r.subject].count += 1;
+        });
+        return Object.entries(bySubject)
+            .map(([name, g]) => ({ name, avg: Number((g.sum / g.count).toFixed(1)), count: g.count }))
+            .sort((a, b) => a.avg - b.avg);
+    },
+
+    // Cuenta los ítems marcados "No conforme" en los registros dados y arma la
+    // data de un Pareto: de la causa más frecuente a la menos frecuente, con su
+    // % acumulado.
+    buildParetoCauses(rows) {
+        const counts = {};
+        rows.forEach(r => {
+            this.getFailedItems({ type: 'Cortador', items: r.items || {} }).forEach(label => {
+                counts[label] = (counts[label] || 0) + 1;
+            });
+        });
+        const sorted = Object.entries(counts)
+            .map(([label, count]) => ({ label, count }))
+            .sort((a, b) => b.count - a.count);
+        const total = sorted.reduce((a, b) => a + b.count, 0);
+        let cum = 0;
+        sorted.forEach(x => { cum += x.count; x.cumPct = total ? Number(((cum / total) * 100).toFixed(1)) : 0; });
+        return sorted;
+    },
+
     // ---------- Retroalimentación por Colaborador (ranking, trae de Supabase) ----------
     async loadRankingData() {
         const statusEl = document.getElementById('ranking-status');
@@ -1382,6 +1447,107 @@ const app = {
         return img;
     },
 
+    // Gráfico de barras horizontales (nombre de cortador en Y, % en X), fuera de
+    // pantalla, para el resumen semanal de cumplimiento del PDF. Los datos ya
+    // deben venir ordenados como se quieran mostrar (peor a mejor).
+    buildCutterBarImage(title, data, width, height) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.style.position = 'fixed';
+        canvas.style.left = '-9999px';
+        document.body.appendChild(canvas);
+
+        const tempChart = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: data.map(d => d.name),
+                datasets: [{
+                    label: '% Cumplimiento',
+                    data: data.map(d => d.avg),
+                    backgroundColor: data.map(d => d.avg >= 90 ? '#38a169' : (d.avg >= 70 ? '#c19a3b' : '#c62828')),
+                    borderRadius: 4,
+                    maxBarThickness: 20
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: false,
+                animation: false,
+                layout: { padding: { right: 28 } },
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: title, font: { size: 13 } },
+                    datalabels: {
+                        display: (ctx) => ctx.dataset.data[ctx.dataIndex] != null,
+                        anchor: 'end', align: 'end', clip: false,
+                        color: '#2d3748', font: { size: 8, weight: 'bold' },
+                        formatter: (value) => value + '%'
+                    }
+                },
+                scales: {
+                    x: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } },
+                    y: { ticks: { font: { size: 8 } } }
+                }
+            }
+        });
+
+        const img = canvas.toDataURL('image/png', 1.0);
+        tempChart.destroy();
+        document.body.removeChild(canvas);
+        return img;
+    },
+
+    // Gráfico de Pareto (barras de conteo + línea de % acumulado), fuera de
+    // pantalla, para el resumen semanal de causas de no conformidad del PDF.
+    buildParetoImage(title, pareto, width, height) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.style.position = 'fixed';
+        canvas.style.left = '-9999px';
+        document.body.appendChild(canvas);
+
+        const tempChart = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: pareto.map(x => x.label),
+                datasets: [
+                    {
+                        type: 'bar', label: 'No conformidades', data: pareto.map(x => x.count),
+                        backgroundColor: '#c62828', order: 2,
+                        datalabels: { anchor: 'end', align: 'top', color: '#2d3748', font: { size: 8, weight: 'bold' }, formatter: v => v }
+                    },
+                    {
+                        type: 'line', label: '% Acumulado', data: pareto.map(x => x.cumPct),
+                        borderColor: '#1a3a6c', backgroundColor: '#1a3a6c', yAxisID: 'y1',
+                        tension: 0.25, pointRadius: 3, order: 1,
+                        datalabels: { display: false }
+                    }
+                ]
+            },
+            options: {
+                responsive: false,
+                animation: false,
+                layout: { padding: { top: 8 } },
+                plugins: {
+                    legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } },
+                    title: { display: true, text: title, font: { size: 13 } }
+                },
+                scales: {
+                    x: { ticks: { autoSkip: false, maxRotation: 60, minRotation: 30, font: { size: 7.5 } } },
+                    y: { beginAtZero: true, title: { display: true, text: 'Nº de no conformidades', font: { size: 8 } }, ticks: { font: { size: 8 } } },
+                    y1: { beginAtZero: true, max: 100, position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%', font: { size: 8 } } }
+                }
+            }
+        });
+
+        const img = canvas.toDataURL('image/png', 1.0);
+        tempChart.destroy();
+        document.body.removeChild(canvas);
+        return img;
+    },
+
     // ---------- PDF organizado por producto ----------
     // Para cada producto (PO, MP, SL, SN, TR) que tenga registros: gráfica de
     // Cortadores por semana, gráfica de Caneca/S.Madre por semana, y la tabla de
@@ -1413,13 +1579,77 @@ const app = {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('p', 'mm', 'a4');
         const pageHeight = doc.internal.pageSize.getHeight();
+        const imgWidth = 190;
         const ensureSpace = (currentY, needed) => {
             if (currentY + needed > pageHeight - 12) { doc.addPage(); return 16; }
             return currentY;
         };
 
-        products.forEach((product, i) => {
-            if (i > 0) doc.addPage();
+        // Usa la página en blanco inicial que ya crea jsPDF para el primer
+        // contenido que se dibuje (resumen semanal si hay datos, si no el primer
+        // producto); cada sección posterior sí abre página nueva.
+        let pageStarted = false;
+        const startPage = () => { if (pageStarted) doc.addPage(); pageStarted = true; };
+
+        // ---------- Resumen semanal (última semana ISO completa): cumplimiento
+        // de cortadores general y por producto, de peor a mejor, + Pareto de las
+        // causas (ítems no conformes) más frecuentes de esa semana. ----------
+        const weekInfo = this.getLastCompleteWeekRange();
+        const cloudWeekCort = allRows
+            .filter(r => r.type === 'Cortador' && r.record_date >= weekInfo.start && r.record_date <= weekInfo.end)
+            .map(r => ({ subject: r.subject, product: r.product, score: r.score, items: r.checklist || {} }));
+        const localWeekCort = this.records
+            .filter(r => !r.synced && r.type === 'Cortador' && r.date >= weekInfo.start && r.date <= weekInfo.end)
+            .map(r => ({ subject: r.subject, product: r.product, score: r.score, items: r.items }));
+        const weekCortRows = [...cloudWeekCort, ...localWeekCort];
+
+        if (weekCortRows.length) {
+            const weekLabel = `Semana ${weekInfo.week} de ${weekInfo.year} (${weekInfo.start} a ${weekInfo.end})`;
+
+            // Gráfico general (todos los cortadores de la semana), en páginas de
+            // hasta 26 barras para que el texto no quede ilegible si hay muchos.
+            const generalData = this.buildCutterAvg(weekCortRows);
+            const chunkSize = 26;
+            const totalChunks = Math.ceil(generalData.length / chunkSize);
+            for (let i = 0; i < generalData.length; i += chunkSize) {
+                const chunk = generalData.slice(i, i + chunkSize);
+                const chunkNr = Math.floor(i / chunkSize) + 1;
+                const suffix = totalChunks > 1 ? ` (${chunkNr}/${totalChunks})` : '';
+                const chartTitle = `Cumplimiento Cortadores — General — Sem ${weekInfo.week}${suffix}`;
+
+                startPage();
+                doc.setFillColor(26, 58, 108);
+                doc.rect(0, 0, 210, 20, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(13);
+                doc.text(chartTitle, 10, 13);
+
+                const chartHeight = Math.max(250, 60 + chunk.length * 26);
+                const img = this.buildCutterBarImage(chartTitle, chunk, 900, chartHeight);
+                doc.addImage(img, 'PNG', 10, 26, imgWidth, imgWidth * (chartHeight / 900));
+            }
+
+            // Pareto de causas (ítems no conformes) de la semana, todos los productos.
+            const pareto = this.buildParetoCauses(weekCortRows);
+            if (pareto.length) {
+                const paretoTitle = `Pareto de Causas — Ítems No Conformes — Sem ${weekInfo.week}`;
+                startPage();
+                doc.setFillColor(26, 58, 108);
+                doc.rect(0, 0, 210, 26, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(13);
+                doc.text(paretoTitle, 10, 13);
+                doc.setFontSize(9);
+                doc.text(weekLabel, 10, 21);
+
+                const paretoHeight = 620;
+                const paretoImg = this.buildParetoImage(paretoTitle, pareto, 900, paretoHeight);
+                doc.addImage(paretoImg, 'PNG', 10, 32, imgWidth, imgWidth * (paretoHeight / 900));
+            }
+        }
+
+        products.forEach((product) => {
+            startPage();
             const code = PRODUCT_CODES[product] || product;
 
             doc.setFillColor(26, 58, 108);
@@ -1435,7 +1665,6 @@ const app = {
             const weeksForProduct = [...new Set([...prodCort, ...prodCaneca].map(r => r.week))].filter(w => w !== null && w !== undefined).sort((a, b) => a - b);
 
             let y = 34;
-            const imgWidth = 190;
             const imgHeight = imgWidth * (300 / 900);
 
             // 1. Gráfico Cortadores del producto
@@ -1514,10 +1743,30 @@ const app = {
                     alternateRowStyles: { fillColor: [250, 251, 252] },
                     columnStyles: { 0: { fontStyle: 'bold', textColor: [26, 58, 108] } }
                 });
+                y = doc.lastAutoTable.finalY + 10;
             } else {
                 doc.setFontSize(9);
                 doc.setTextColor(120, 120, 120);
                 doc.text('Sin registros de cortadores para este producto.', 10, y + 8);
+                y += 18;
+            }
+
+            // 4. Cumplimiento por cortador de este producto — última semana (Sem X).
+            const productWeekRows = weekCortRows.filter(r => r.product === product);
+            if (productWeekRows.length) {
+                const productWeekData = this.buildCutterAvg(productWeekRows);
+                const chartHeight = Math.max(220, 60 + productWeekData.length * 26);
+                const chartImgHeight = imgWidth * (chartHeight / 900);
+                y = ensureSpace(y, chartImgHeight + 14);
+
+                doc.setFontSize(12);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`4. Cumplimiento Cortadores ${code} — Semana pasada (Sem ${weekInfo.week})`, 10, y);
+                y += 4;
+
+                const chartTitle = `Cumplimiento Cortadores ${code} — Sem ${weekInfo.week}`;
+                const img4 = this.buildCutterBarImage(chartTitle, productWeekData, 900, chartHeight);
+                doc.addImage(img4, 'PNG', 10, y, imgWidth, chartImgHeight);
             }
         });
 
