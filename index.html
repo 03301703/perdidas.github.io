@@ -1700,58 +1700,7 @@ const app = {
                 y += 14;
             }
 
-            // 3. Tabla de registros de los cortadores de este producto
-            y = ensureSpace(y, 25);
-            doc.setFontSize(12);
-            doc.setTextColor(0, 0, 0);
-            doc.text(`3. Registros de los cortadores — Producto ${code}`, 10, y);
-
-            if (prodCort.length && doc.autoTable) {
-                const sortedCort = prodCort.slice().sort((a, b) => a.subject.localeCompare(b.subject, 'es') || a.record_date.localeCompare(b.record_date) || (a.record_time || '').localeCompare(b.record_time || ''));
-
-                // Arma el cuerpo intercalando, al terminar los registros de cada
-                // cortador, una fila de "Promedio semanal" resaltada en oscuro.
-                const darkRow = { fillColor: [45, 74, 110], textColor: 255, fontStyle: 'bold' };
-                const body = [];
-                let currentSubject = null;
-                let currentScores = [];
-                const pushAverageRow = () => {
-                    if (currentSubject === null || !currentScores.length) return;
-                    const avg = (currentScores.reduce((a, b) => a + b, 0) / currentScores.length).toFixed(1);
-                    body.push([
-                        { content: `Promedio semanal — ${currentSubject}`, colSpan: 6, styles: darkRow },
-                        { content: avg + '%', styles: darkRow },
-                        { content: '', colSpan: 2, styles: darkRow }
-                    ]);
-                };
-                sortedCort.forEach(r => {
-                    if (currentSubject !== null && r.subject !== currentSubject) pushAverageRow();
-                    if (r.subject !== currentSubject) { currentSubject = r.subject; currentScores = []; }
-                    currentScores.push(r.score);
-                    const failed = this.getFailedItems({ type: 'Cortador', items: r.checklist || {} });
-                    body.push([r.subject, r.record_date, r.record_time || '-', r.week || '-', r.jornada || '-', r.bloque || '-', r.score + '%', r.insurer_name, failed.length ? failed.join(', ') : 'Todo conforme']);
-                });
-                pushAverageRow(); // cierra el último cortador de la lista
-
-                doc.autoTable({
-                    startY: y + 4,
-                    margin: { left: 10, right: 10 },
-                    head: [['Cortador', 'Fecha', 'Hora', 'Semana', 'Jornada', 'Bloque', '%', 'Asegurador', 'Observaciones']],
-                    body: body,
-                    styles: { fontSize: 7.5, cellPadding: 1.6, overflow: 'linebreak' },
-                    headStyles: { fillColor: [26, 58, 108], fontSize: 7.5 },
-                    alternateRowStyles: { fillColor: [250, 251, 252] },
-                    columnStyles: { 0: { fontStyle: 'bold', textColor: [26, 58, 108] } }
-                });
-                y = doc.lastAutoTable.finalY + 10;
-            } else {
-                doc.setFontSize(9);
-                doc.setTextColor(120, 120, 120);
-                doc.text('Sin registros de cortadores para este producto.', 10, y + 8);
-                y += 18;
-            }
-
-            // 4. Cumplimiento por cortador de este producto — última semana (Sem X).
+            // 3. Cumplimiento por cortador de este producto — última semana (Sem X).
             const productWeekRows = weekCortRows.filter(r => r.product === product);
             if (productWeekRows.length) {
                 const productWeekData = this.buildCutterAvg(productWeekRows);
@@ -1761,12 +1710,12 @@ const app = {
 
                 doc.setFontSize(12);
                 doc.setTextColor(0, 0, 0);
-                doc.text(`4. Cumplimiento Cortadores ${code} — Semana pasada (Sem ${weekInfo.week})`, 10, y);
+                doc.text(`3. Cumplimiento Cortadores ${code} — Semana pasada (Sem ${weekInfo.week})`, 10, y);
                 y += 4;
 
                 const chartTitle = `Cumplimiento Cortadores ${code} — Sem ${weekInfo.week}`;
-                const img4 = this.buildCutterBarImage(chartTitle, productWeekData, 900, chartHeight);
-                doc.addImage(img4, 'PNG', 10, y, imgWidth, chartImgHeight);
+                const img3 = this.buildCutterBarImage(chartTitle, productWeekData, 900, chartHeight);
+                doc.addImage(img3, 'PNG', 10, y, imgWidth, chartImgHeight);
             }
         });
 
