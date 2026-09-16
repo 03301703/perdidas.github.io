@@ -1586,14 +1586,13 @@ const app = {
         };
 
         // Usa la página en blanco inicial que ya crea jsPDF para el primer
-        // contenido que se dibuje (resumen semanal si hay datos, si no el primer
-        // producto); cada sección posterior sí abre página nueva.
+        // producto; cada producto siguiente sí abre página nueva.
         let pageStarted = false;
         const startPage = () => { if (pageStarted) doc.addPage(); pageStarted = true; };
 
-        // ---------- Resumen semanal (última semana ISO completa): cumplimiento
-        // de cortadores general y por producto, de peor a mejor, + Pareto de las
-        // causas (ítems no conformes) más frecuentes de esa semana. ----------
+        // Última semana ISO completa: se usa más abajo para las secciones 3 y 4
+        // de cada página de producto (cumplimiento por cortador y Pareto de
+        // causas de esa semana, ambos específicos del producto).
         const weekInfo = this.getLastCompleteWeekRange();
         const cloudWeekCort = allRows
             .filter(r => r.type === 'Cortador' && r.record_date >= weekInfo.start && r.record_date <= weekInfo.end)
@@ -1602,51 +1601,6 @@ const app = {
             .filter(r => !r.synced && r.type === 'Cortador' && r.date >= weekInfo.start && r.date <= weekInfo.end)
             .map(r => ({ subject: r.subject, product: r.product, score: r.score, items: r.items }));
         const weekCortRows = [...cloudWeekCort, ...localWeekCort];
-
-        if (weekCortRows.length) {
-            const weekLabel = `Semana ${weekInfo.week} de ${weekInfo.year} (${weekInfo.start} a ${weekInfo.end})`;
-
-            // Gráfico general (todos los cortadores de la semana), en páginas de
-            // hasta 26 barras para que el texto no quede ilegible si hay muchos.
-            const generalData = this.buildCutterAvg(weekCortRows);
-            const chunkSize = 26;
-            const totalChunks = Math.ceil(generalData.length / chunkSize);
-            for (let i = 0; i < generalData.length; i += chunkSize) {
-                const chunk = generalData.slice(i, i + chunkSize);
-                const chunkNr = Math.floor(i / chunkSize) + 1;
-                const suffix = totalChunks > 1 ? ` (${chunkNr}/${totalChunks})` : '';
-                const chartTitle = `Cumplimiento Cortadores — General — Sem ${weekInfo.week}${suffix}`;
-
-                startPage();
-                doc.setFillColor(26, 58, 108);
-                doc.rect(0, 0, 210, 20, 'F');
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(13);
-                doc.text(chartTitle, 10, 13);
-
-                const chartHeight = Math.max(250, 60 + chunk.length * 26);
-                const img = this.buildCutterBarImage(chartTitle, chunk, 900, chartHeight);
-                doc.addImage(img, 'PNG', 10, 26, imgWidth, imgWidth * (chartHeight / 900));
-            }
-
-            // Pareto de causas (ítems no conformes) de la semana, todos los productos.
-            const pareto = this.buildParetoCauses(weekCortRows);
-            if (pareto.length) {
-                const paretoTitle = `Pareto de Causas — Ítems No Conformes — Sem ${weekInfo.week}`;
-                startPage();
-                doc.setFillColor(26, 58, 108);
-                doc.rect(0, 0, 210, 26, 'F');
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(13);
-                doc.text(paretoTitle, 10, 13);
-                doc.setFontSize(9);
-                doc.text(weekLabel, 10, 21);
-
-                const paretoHeight = 620;
-                const paretoImg = this.buildParetoImage(paretoTitle, pareto, 900, paretoHeight);
-                doc.addImage(paretoImg, 'PNG', 10, 32, imgWidth, imgWidth * (paretoHeight / 900));
-            }
-        }
 
         products.forEach((product) => {
             startPage();
