@@ -1716,6 +1716,24 @@ const app = {
                 const chartTitle = `Cumplimiento Cortadores ${code} — Sem ${weekInfo.week}`;
                 const img3 = this.buildCutterBarImage(chartTitle, productWeekData, 900, chartHeight);
                 doc.addImage(img3, 'PNG', 10, y, imgWidth, chartImgHeight);
+                y += chartImgHeight + 10;
+            }
+
+            // 4. Pareto de causas (ítems no conformes) de este producto — última semana.
+            const productPareto = this.buildParetoCauses(productWeekRows);
+            if (productPareto.length) {
+                const paretoHeight = Math.max(350, 90 + productPareto.length * 14);
+                const paretoImgHeight = imgWidth * (paretoHeight / 900);
+                y = ensureSpace(y, paretoImgHeight + 14);
+
+                doc.setFontSize(12);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`4. Pareto de Causas ${code} — Semana pasada (Sem ${weekInfo.week})`, 10, y);
+                y += 4;
+
+                const paretoTitle = `Pareto de Causas ${code} — Sem ${weekInfo.week}`;
+                const imgPareto = this.buildParetoImage(paretoTitle, productPareto, 900, paretoHeight);
+                doc.addImage(imgPareto, 'PNG', 10, y, imgWidth, paretoImgHeight);
             }
         });
 
