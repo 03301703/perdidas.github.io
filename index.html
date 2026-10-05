@@ -192,7 +192,10 @@
         .modal-overlay.show { display: flex; }
         .modal-box { background: #fff; border-radius: 10px; width: 100%; max-width: 520px; padding: 16px; margin: auto; }
         .modal-box h2 { margin-top: 0; }
-        .edit-item-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid #edf2f7; font-size: 0.85rem; }
+        .edit-item-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 4px; border-bottom: 1px solid #edf2f7; font-size: 0.85rem; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .edit-item-row .state { flex-shrink: 0; padding: 6px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; background: #c6f6d5; color: #22543d; }
+        .edit-item-row.nc .state { background: #f56565; color: #fff; }
+        .check-item { cursor: pointer; -webkit-tap-highlight-color: transparent; }
     </style>
 </head>
 <body>
@@ -680,10 +683,10 @@ const app = {
         this.currentEval = {};
         list.forEach((item, i) => { this.currentEval[i] = 'C'; });
         document.getElementById('checklist-body').innerHTML = list.map((item, i) => `
-            <div class="check-item">
+            <div class="check-item" onclick="app.toggleEval(${i})">
                 <div class="item-label">${item}</div>
                 <div class="eval-btns">
-                    <div class="eval-btn nc" id="nc-${i}" onclick="app.toggleEval(${i})">
+                    <div class="eval-btn nc" id="nc-${i}">
                         <i class="fas fa-times"></i> No conforme
                     </div>
                 </div>
@@ -1163,9 +1166,9 @@ const app = {
             </div>
             <label>Ítems de control</label>
             <div>${Object.keys(this._editItems).map((k, i) => `
-                <div class="edit-item-row">
+                <div class="edit-item-row ${this._editItems[k] === 'NC' ? 'nc' : ''}" id="edit-row-${k}" onclick="app.toggleEditItem('${k}')">
                     <span>${names[i] !== undefined ? names[i] : 'Ítem ' + (i + 1)}</span>
-                    <div class="eval-btn nc ${this._editItems[k] === 'NC' ? 'active' : ''}" id="edit-nc-${k}" onclick="app.toggleEditItem('${k}')"><i class="fas fa-times"></i> No conforme</div>
+                    <span class="state" id="edit-state-${k}">${this._editItems[k] === 'NC' ? '✗ No conforme' : '✓ Conforme'}</span>
                 </div>`).join('')}
             </div>
             <div class="form-group" style="margin-top:12px;">
@@ -1178,7 +1181,8 @@ const app = {
     toggleEditItem(k) {
         const nc = this._editItems[k] !== 'NC';
         this._editItems[k] = nc ? 'NC' : 'C';
-        document.getElementById(`edit-nc-${k}`).classList.toggle('active', nc);
+        document.getElementById(`edit-row-${k}`).classList.toggle('nc', nc);
+        document.getElementById(`edit-state-${k}`).innerText = nc ? '✗ No conforme' : '✓ Conforme';
     },
 
     closeEditRecord() {
