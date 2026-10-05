@@ -36,10 +36,11 @@ Then open `http://localhost:8080` in Chrome (required for service worker registr
 - Records are written to **`localStorage`** first (offline-first), then synced to **Supabase** asynchronously.
 - On app load, pending records (those not yet synced) are retried. Retry also fires on the browser `online` event.
 - Each record stores the monitor's `display_name` at capture time — renaming a user in Supabase does not affect historical records.
+- **Editing records** (`openEditRecord` / `saveEditRecord` in `index.html`): editable fields are product, cutter (Cortador) or bloque (Caneca), jornada, checklist items and observations. Date, type and insurer are not editable. The score is recalculated. If the record already has a `cloudId`, it is flagged `pendingUpdate` and pushed to Supabase with `pushRecordUpdate`; failures are retried in `syncPending`. This requires an RLS `UPDATE` policy on `public.records` (already created in Supabase; the proposed version restricts edits to `insurer_id = auth.uid()` — verify under Authentication → Policies which variant was applied); without it Supabase silently updates 0 rows and the record stays pending.
 
 ### Three views (tabs)
-- **Captura** — main data entry form; two modes: `Cortador` (field cutter checklist) and `Caneca` (solution drum checklist). KPI cards at the top reflect today's local records.
-- **Datos** — filterable table of all local records; Excel and PDF export.
+- **Captura** — main data entry form; two modes: `Cortador` (field cutter checklist) and `Caneca` (solution drum checklist). KPI cards at the top reflect today's local records. Checklist items toggle conforme/no conforme by tapping anywhere on the item card. At the bottom, in order: *Gestión de Personal*, *Configuración Temporal* (evaluation date, so records can be back-dated when a day was missed) and *Mantenimiento* (clears local storage).
+- **Datos** — filterable list of all local records; Excel and PDF export. Each record card has an edit (pencil) and delete (trash) icon.
 - **Historial** — per-cutter historical cards with bar chart.
 
 ### Auth
@@ -57,4 +58,5 @@ The service worker (`sw.js`) uses a **cache-first** strategy: serves cached resp
 - **Do not add a build tool or bundler** — the single-file architecture is intentional for simplicity and field deployment.
 - **Monitors are fixed** — only Mayra and Jesús. The admin panel in "Captura" manages cutters only, not monitors.
 - **Data is device-local** — `localStorage` is per-device/browser. Cross-device consolidation requires a Supabase query not yet implemented.
+- Records can only be edited from the device that holds them in `localStorage`; after "Mantenimiento" clears local storage they no longer appear in Datos.
 - Icons live in the repo root (not an `icons/` subfolder) despite the README structure diagram.
