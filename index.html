@@ -188,6 +188,11 @@
             .form-actions .btn { width: 100%; }
             .filter-row .btn { width: 100%; }
         }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 900; display: none; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 16px; }
+        .modal-overlay.show { display: flex; }
+        .modal-box { background: #fff; border-radius: 10px; width: 100%; max-width: 520px; padding: 16px; margin: auto; }
+        .modal-box h2 { margin-top: 0; }
+        .edit-item-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid #edf2f7; font-size: 0.85rem; }
     </style>
 </head>
 <body>
@@ -318,6 +323,19 @@
                     <button class="btn btn-primary" onclick="app.addPerson()" style="padding: 10px;"><i class="fas fa-plus"></i></button>
                 </div>
                 <div id="admin-list" style="max-height: 150px; overflow-y: auto; border: 1px solid #cbd5e0; border-radius: 4px;"></div>
+            </div>
+        </details>
+
+        <details class="card" id="maintenance-panel">
+            <summary><i class="fas fa-broom"></i> Mantenimiento</summary>
+            <div style="margin-top: 14px;">
+                <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0;">
+                    Borra los registros guardados en <strong>este celular</strong> (ya respaldados en Supabase).
+                    No es necesario hacerlo seguido — es solo para liberar espacio de vez en cuando.
+                </p>
+                <button class="btn btn-danger" id="btn-clear-session" onclick="app.clearLocalSession()" style="width: 100%;">
+                    Limpiar almacenamiento local de este celular
+                </button>
             </div>
         </details>
     </div>
@@ -451,21 +469,19 @@
                 <div id="ranking-list"></div>
             </div>
         </details>
-
-        <details class="card" id="maintenance-panel">
-            <summary><i class="fas fa-broom"></i> Mantenimiento</summary>
-            <div style="margin-top: 14px;">
-                <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0;">
-                    Borra los registros guardados en <strong>este celular</strong> (ya respaldados en Supabase).
-                    No es necesario hacerlo seguido — es solo para liberar espacio de vez en cuando.
-                </p>
-                <button class="btn btn-danger" id="btn-clear-session" onclick="app.clearLocalSession()" style="width: 100%;">
-                    Limpiar almacenamiento local de este celular
-                </button>
-            </div>
-        </details>
     </div>
 
+</div>
+
+<div class="modal-overlay" id="edit-modal">
+    <div class="modal-box">
+        <h2><i class="fas fa-pen"></i> Editar registro</h2>
+        <div id="edit-modal-body"></div>
+        <div class="form-actions" style="display:flex; gap:8px; margin-top:14px;">
+            <button class="btn btn-primary" style="flex:1" onclick="app.closeEditRecord()">Cancelar</button>
+            <button class="btn btn-accent" style="flex:1" onclick="app.saveEditRecord()">Guardar cambios</button>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -774,6 +790,7 @@ const app = {
     async syncPending() {
         const pending = this.records.filter(r => r.insurer_id && !r.synced);
         for (const rec of pending) { await this.syncRecord(rec); }
+        for (const rec of this.records.filter(r => r.pendingUpdate)) { await this.pushRecordUpdate(rec); }
     },
 
     resetForm() {
@@ -1102,10 +1119,133 @@ const app = {
                 <div class="eval-card-sub">Producto: ${r.product}${r.bloque ? ' · Bloque ' + r.bloque : ''} · Aseguró: ${r.insurer}</div>
                 ${r.obs ? `<div class="eval-card-obs">${r.obs}</div>` : ''}
                 <div style="text-align: right; margin-top: 8px;">
+                    <i class="fas fa-pen" style="color:#718096; cursor:pointer; margin-right:16px" title="Editar" onclick="app.openEditRecord(${r.id})"></i>
                     <i class="fas fa-trash" style="color:#cbd5e0; cursor:pointer" onclick="app.deleteRecord(${r.id})"></i>
                 </div>
             </div>
         `).join('') : `<div class="empty-state">No hay registros que coincidan con los filtros</div>`;
+    },
+
+    // ---------- Edición de registros (Datos) ----------
+    // Permite corregir producto, cortador, jornada, bloque, ítems y observaciones.
+    // El puntaje se recalcula; si el registro ya está en la nube se actualiza allá también.
+    openEditRecord(id) {
+        const r = this.records.find(x => x.id === id);
+        if (!r) return;
+        this._editId = id;
+        this._editItems = {...(r.items || {})};
+        const names = this.getItemNames(r.type, Object.keys(this._editItems).length);
+        const products = PRODUCT_ORDER;
+        const jornadas = (r.jornada || '').split(', ').filter(Boolean);
+        const jornadaOpts = [['Mañana', 'Mañana'], ['Después de desayuno', 'Desayuno'], ['Tarde', 'Tarde']];
+
+        document.getElementById('edit-modal-body').innerHTML = `
+            <div class="eval-card-sub" style="margin-bottom:10px;">${r.date} · ${r.type} · Aseguró: ${r.insurer}</div>
+            <div class="form-group">
+                <label>Producto</label>
+                <select id="edit-product">${products.map(p => `<option ${p === r.product ? 'selected' : ''}>${p}</option>`).join('')}</select>
+            </div>
+            ${r.type === 'Cortador' ? `
+            <div class="form-group">
+                <label>Cortador</label>
+                <input type="text" id="edit-subject" list="edit-cutters-list" value="${(r.subject || '').replace(/"/g, '&quot;')}" autocomplete="off">
+                <datalist id="edit-cutters-list">${this.getSortedCutters().map(n => `<option value="${n.replace(/"/g, '&quot;')}">`).join('')}</datalist>
+            </div>` : `
+            <div class="form-group">
+                <label>Bloque</label>
+                <select id="edit-bloque">${Array.from({length: 84}, (_, i) => i + 1).map(n => `<option ${n === r.bloque ? 'selected' : ''}>${n}</option>`).join('')}</select>
+            </div>`}
+            <div class="form-group">
+                <label>Jornada</label>
+                <div class="jornada-toggles" id="edit-jornada-toggles">
+                    ${jornadaOpts.map(([v, l]) => `<div class="jornada-btn ${jornadas.includes(v) ? 'active' : ''}" data-value="${v}" onclick="this.classList.toggle('active')">${l}</div>`).join('')}
+                </div>
+            </div>
+            <label>Ítems de control</label>
+            <div>${Object.keys(this._editItems).map((k, i) => `
+                <div class="edit-item-row">
+                    <span>${names[i] !== undefined ? names[i] : 'Ítem ' + (i + 1)}</span>
+                    <div class="eval-btn nc ${this._editItems[k] === 'NC' ? 'active' : ''}" id="edit-nc-${k}" onclick="app.toggleEditItem('${k}')"><i class="fas fa-times"></i> No conforme</div>
+                </div>`).join('')}
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Observaciones</label>
+                <textarea id="edit-obs" rows="2">${(r.obs || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}</textarea>
+            </div>`;
+        document.getElementById('edit-modal').classList.add('show');
+    },
+
+    toggleEditItem(k) {
+        const nc = this._editItems[k] !== 'NC';
+        this._editItems[k] = nc ? 'NC' : 'C';
+        document.getElementById(`edit-nc-${k}`).classList.toggle('active', nc);
+    },
+
+    closeEditRecord() {
+        document.getElementById('edit-modal').classList.remove('show');
+        this._editId = null;
+    },
+
+    async saveEditRecord() {
+        const r = this.records.find(x => x.id === this._editId);
+        if (!r) return this.closeEditRecord();
+
+        let subject = r.subject;
+        if (r.type === 'Cortador') {
+            const typed = document.getElementById('edit-subject').value.trim();
+            const match = this.cutters.find(n => n.toLowerCase() === typed.toLowerCase());
+            // Se permite conservar el nombre original aunque ya no esté en la lista de personal
+            if (match) subject = match;
+            else if (typed.toLowerCase() !== (r.subject || '').toLowerCase()) {
+                alert('Ese nombre no está en la lista de cortadores. Verifica que esté bien escrito.');
+                return;
+            }
+        }
+        const jornadas = Array.from(document.querySelectorAll('#edit-jornada-toggles .jornada-btn.active')).map(b => b.dataset.value);
+        if (!jornadas.length) { alert('Selecciona al menos una jornada'); return; }
+
+        const keys = Object.keys(this._editItems);
+        const cCount = keys.filter(k => this._editItems[k] === 'C').length;
+
+        r.product = document.getElementById('edit-product').value;
+        r.subject = subject;
+        if (r.type === 'Caneca') r.bloque = parseInt(document.getElementById('edit-bloque').value, 10);
+        r.jornada = jornadas.join(', ');
+        r.items = {...this._editItems};
+        r.score = parseFloat(((cCount / keys.length) * 100).toFixed(1));
+        r.obs = document.getElementById('edit-obs').value;
+
+        // Si ya estaba en la nube, queda marcado como pendiente de actualizar hasta confirmarlo
+        if (r.cloudId) r.pendingUpdate = true;
+        this.persistRecords();
+        this.closeEditRecord();
+        this.updateKPIs();
+        this.loadWeekComparison();
+        this.renderDatos();
+        await this.pushRecordUpdate(r);
+        this.showToast(r.pendingUpdate ? 'Guardado en este celular; falta actualizar en la nube' : 'Registro actualizado');
+    },
+
+    async pushRecordUpdate(rec) {
+        if (!rec.cloudId || !rec.pendingUpdate) return;
+        try {
+            const { data, error } = await supabaseClient.from('records').update({
+                subject: rec.subject,
+                product: rec.product,
+                bloque: rec.bloque,
+                jornada: rec.jornada,
+                score: rec.score,
+                obs: rec.obs,
+                checklist: rec.items
+            }).eq('id', rec.cloudId).select('id');
+            if (error) throw error;
+            // Sin filas afectadas = la política de la base de datos no permite editar
+            if (!data || !data.length) throw new Error('Supabase no permitió la actualización (revisar política UPDATE de la tabla records)');
+            rec.pendingUpdate = false;
+            this.persistRecords();
+        } catch (e) {
+            console.warn('No se pudo actualizar el registro en la nube (queda pendiente):', e.message || e);
+        }
     },
 
     limpiarFiltrosDatos() {
