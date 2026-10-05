@@ -329,6 +329,17 @@
             </div>
         </details>
 
+        <details class="card" id="config-panel">
+            <summary><i class="fas fa-calendar-check"></i> Configuración Temporal</summary>
+            <div style="margin-top: 14px;">
+                <div class="form-group">
+                    <label>Fecha de Evaluación</label>
+                    <input type="date" id="config-date" onchange="app.updateDate()">
+                </div>
+                <div id="date-info" style="font-size: 0.78rem; background: #edf2f7; padding: 10px; border-radius: 4px; color: var(--primary);"></div>
+            </div>
+        </details>
+
         <details class="card" id="maintenance-panel">
             <summary><i class="fas fa-broom"></i> Mantenimiento</summary>
             <div style="margin-top: 14px;">
@@ -384,17 +395,6 @@
                 <div class="form-actions">
                     <button class="btn btn-primary" onclick="app.limpiarFiltrosDatos()">Limpiar filtros</button>
                 </div>
-            </div>
-        </details>
-
-        <details class="card" id="config-panel">
-            <summary><i class="fas fa-calendar-check"></i> Configuración Temporal</summary>
-            <div style="margin-top: 14px;">
-                <div class="form-group">
-                    <label>Fecha de Evaluación</label>
-                    <input type="date" id="config-date" onchange="app.updateDate()">
-                </div>
-                <div id="date-info" style="font-size: 0.78rem; background: #edf2f7; padding: 10px; border-radius: 4px; color: var(--primary);"></div>
             </div>
         </details>
     </div>
